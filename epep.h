@@ -7,6 +7,7 @@
 #define EPEP_READER_GET(reader) getc(reader)
 #define EPEP_READER_SEEK(reader, offset) fseek(reader, offset, SEEK_SET)
 #define EPEP_READER_TELL(reader) ftell(reader)
+#define EPEP_READER_GET_BLOCK(reader, size, buf) fread(buf, 1, size, reader);
 #endif
 
 typedef enum {
@@ -307,13 +308,6 @@ int get_string_table(Epep *epep, char *string_table) {
 	if (!get_string_table_size(epep, &size)) {
 		return 0;
 	}
-	// A COFF strings table starts with its size
-	*string_table++ = (size & 0x000000ff) >> 0;
-	*string_table++ = (size & 0x0000ff00) >> 8;
-	*string_table++ = (size & 0x00ff0000) >> 16;
-	*string_table++ = (size & 0xff000000) >> 24;
-	for (size_t i = 0; i < size; i++) {
-		*string_table++ = epep_read_u8(epep);
-	}
+	EPEP_READER_GET_BLOCK(epep->reader, size, string_table);
 	return 1;
 }
