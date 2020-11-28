@@ -323,3 +323,15 @@ int epep_get_section_contents(Epep *epep, EpepSectionHeader *sh, void *buf) {
 	EPEP_READER_GET_BLOCK(epep->reader, size_of_raw_data, buf);
 	return 1;
 }
+
+int epep_get_section_header_by_rva(Epep *epep, EpepSectionHeader *sh, size_t addr) {
+	EpepSectionHeader sh0 = { 0 };
+	for (size_t i = 0; i < epep->coffFileHeader.NumberOfSections; i++) {
+		epep_get_section_header(epep, &sh0, i);
+		if (addr >= sh0.VirtualAddress && addr < (sh0.VirtualAddress + sh0.VirtualSize)) {
+			*sh = sh0;
+			return 1;
+		}
+	}
+	return 0;
+}

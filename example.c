@@ -89,6 +89,10 @@ int main(int argc, char **argv) {
 			printf("    Type:           %s\n", dds[i % 16]);
 			printf("    VirtualAddress: %016x\n", idd.VirtualAddress);
 			printf("    Size:           %016x\n", idd.Size);
+			EpepSectionHeader sh = { 0 };
+			if (epep_get_section_header_by_rva(&epep, &sh, idd.VirtualAddress)) {
+				printf("    Section:        %s\n", sh.Name);
+			}
 		}
 		printf("\n");
 	}
