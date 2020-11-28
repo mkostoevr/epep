@@ -297,15 +297,15 @@ int epep_get_symbol(Epep *epep, EpepCoffSymbol *sym, size_t index) {
 	return 1;
 }
 
-int get_string_table_size(Epep *epep, size_t *size) {
+int epep_get_string_table_size(Epep *epep, size_t *size) {
 	EPEP_READER_SEEK(epep->reader, epep->coffFileHeader.PointerToSymbolTable + 18 * epep->coffFileHeader.NumberOfSymbols);
 	*size = epep_read_u32(epep);
 	return 1;
 }
 
-int get_string_table(Epep *epep, char *string_table) {
+int epep_get_string_table(Epep *epep, char *string_table) {
 	size_t size = 0;
-	if (!get_string_table_size(epep, &size)) {
+	if (!epep_get_string_table_size(epep, &size)) {
 		return 0;
 	}
 	// A COFF strings table starts with its size

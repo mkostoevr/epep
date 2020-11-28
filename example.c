@@ -95,12 +95,12 @@ int main(int argc, char **argv) {
 
 	// Get string table useful to show long names of sections
 	size_t string_table_size = 1;
-	if (epep.kind == EPEP_OBJECT && !get_string_table_size(&epep, &string_table_size)) {
+	if (epep.kind == EPEP_OBJECT && !epep_get_string_table_size(&epep, &string_table_size)) {
 		printf("Error #%u from EPEP at %s:%d", epep.error_code, __FILE__, __LINE__);
 		return 1;
 	}
 	char *string_table = malloc(string_table_size);
-	if (epep.kind == EPEP_OBJECT && !get_string_table(&epep, string_table)) {
+	if (epep.kind == EPEP_OBJECT && !epep_get_string_table(&epep, string_table)) {
 		printf("Error #%u from EPEP at %s:%d", epep.error_code, __FILE__, __LINE__);
 		return 1;
 	}
