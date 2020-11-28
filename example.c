@@ -9,7 +9,7 @@ int main(int argc, char **argv) {
 		return 0;
 	}
 	Epep epep = { 0 };
-	FILE *fp = fopen(argv[1], "r");
+	FILE *fp = fopen(argv[1], "rb");
 	if (!epep_init(&epep, fp)) {
 		printf("Not PE");
 		return 1;
@@ -88,6 +88,19 @@ int main(int argc, char **argv) {
 		}
 		printf("\n");
 	}
+
+	// Get string table useful to show long names of sections
+	size_t string_table_size = 0;
+	if (!get_string_table_size(&epep, &string_table_size)) {
+		printf("Error #%u from EPEP at %s:%d", epep.error_code, __FILE__, __LINE__);
+		return 1;
+	}
+	char *string_table = malloc(string_table_size);
+	if (!get_string_table(&epep, string_table)) {
+		printf("Error #%u from EPEP at %s:%d", epep.error_code, __FILE__, __LINE__);
+		return 1;
+	}
+
 	printf("Section Table:\n");
 	for (size_t i = 0; i < epep.coffFileHeader.NumberOfSections; i++) {
 		EpepSectionHeader sh = { 0 };
@@ -96,7 +109,11 @@ int main(int argc, char **argv) {
 			return 1;
 		}
 		printf("  Section #%u\n", i);
-		printf("    Name:                 %.*s\n", 8, sh.Name);
+		if (sh.Name[0] == '/') {
+			printf("    Name:                 %s\n", &string_table[atoi(sh.Name + 1)]);
+		} else {
+			printf("    Name:                 %.*s\n", 8, sh.Name);
+		}
 		printf("    VirtualSize:          %08x\n", sh.VirtualSize);
 		printf("    VirtualAddress:       %08x\n", sh.VirtualAddress);
 		printf("    SizeOfRawData:        %08x\n", sh.SizeOfRawData);
@@ -106,6 +123,31 @@ int main(int argc, char **argv) {
 		printf("    NumberOfRelocations:  %08x\n", sh.NumberOfRelocations);
 		printf("    NumberOfLinenumbers:  %08x\n", sh.NumberOfLinenumbers);
 		printf("    Characteristics:      %08x\n", sh.Characteristics);
+	}
+	printf("\n");
+	if (epep.coffFileHeader.NumberOfSymbols != 0) {
+		printf("Symbols:\n");
+		for (size_t i = 0; i < epep.coffFileHeader.NumberOfSymbols; i++) {
+			EpepCoffSymbol sym = { 0 };
+			if (!epep_get_symbol(&epep, &sym, i)) {
+				printf("Error #%u from EPEP during symbols parsing", epep.error_code);
+				return 1;
+			}
+			printf("  Symbol #%u\n", i);
+			if (sym.symbol.Zeroes == 0) {
+				printf("    Name: %s\n", &string_table[sym.symbol.Offset]);
+			} else {
+				printf("    Name: %.*s\n", 8, sym.symbol.ShortName);
+			}
+			printf("    Value:              %08x\n", sym.symbol.Value);
+			printf("    SectionNumber:      %04x\n", sym.symbol.SectionNumber);
+			printf("    Type:               %04x\n", sym.symbol.Type);
+			printf("    StorageClass:       %02x\n", sym.symbol.StorageClass);
+			printf("    NumberOfAuxSymbols: %02x\n", sym.symbol.NumberOfAuxSymbols);
+			for (size_t j = 0; j < sym.symbol.NumberOfAuxSymbols; j++) {
+				i++;
+			}
+		}
 	}
 	return 0;
 }

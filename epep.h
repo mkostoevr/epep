@@ -19,6 +19,8 @@ typedef enum {
 	EPEP_ERR_SUCCESS,
 	EPEP_ERR_DATA_DIRECTORY_INDEX_IS_INVALID,
 	EPEP_ERR_SECTION_HEADER_INDEX_IS_INVALID,
+	EPEP_ERR_SYMBOL_INDEX_IS_INVALID,
+	EPEP_ERR_NOT_AN_OBJECT,
 } EpepError;
 
 typedef struct {
@@ -38,6 +40,54 @@ typedef struct {
 	uint16_t NumberOfLinenumbers;
 	uint32_t Characteristics;
 } EpepSectionHeader;
+
+typedef union {
+	struct {
+		union {
+			char ShortName[8];
+			struct {
+				uint32_t Zeroes;
+				uint32_t Offset;
+			};
+		};
+		uint32_t Value;
+		uint16_t SectionNumber;
+		uint16_t Type;
+		uint8_t StorageClass;
+		uint8_t NumberOfAuxSymbols;
+	} symbol;
+	struct {
+		uint32_t TagIndex;
+		uint32_t TotalSize;
+		uint32_t PointerToLinenumber;
+		uint32_t PointerToNextFunction;
+		uint16_t Unused;
+	} auxFunctionDefinition;
+	struct {
+		uint8_t Unused0[4];
+		uint16_t Linenumber;
+		uint8_t Unused1[6];
+		uint32_t PointerToNextFunction;
+		uint8_t Unused2[2];
+	} auxBfOrEfSymbol;
+	struct {
+		uint32_t TagIndex;
+		uint32_t Characteristics;
+		uint8_t Unused[10];
+	} auxWeakExternal;
+	struct {
+		char FileName[18];
+	} auxFile;
+	struct {
+		uint32_t Length;
+		uint16_t NumberOfRelocations;
+		uint16_t NumberOfLinenumbers;
+		uint32_t CheckSum;
+		uint16_t Number;
+		uint8_t  Selection;
+		uint8_t Unused[3];
+	} auxSectionDefinition;
+} EpepCoffSymbol;
 
 typedef struct {
 	EPEP_READER reader;
@@ -227,5 +277,43 @@ int epep_get_section_header(Epep *epep, EpepSectionHeader *sh, size_t index) {
 	sh->NumberOfRelocations = epep_read_u16(epep);
 	sh->NumberOfLinenumbers = epep_read_u16(epep);
 	sh->Characteristics = epep_read_u32(epep);
+	return 1;
+}
+
+int epep_get_symbol(Epep *epep, EpepCoffSymbol *sym, size_t index) {
+	if (epep->kind != EPEP_OBJECT) {
+		epep->error_code = EPEP_ERR_NOT_AN_OBJECT;
+		return 0;
+	}
+	if (index >= epep->coffFileHeader.NumberOfSymbols) {
+		epep->error_code = EPEP_ERR_SYMBOL_INDEX_IS_INVALID;
+		return 0;
+	}
+	EPEP_READER_SEEK(epep->reader, epep->coffFileHeader.PointerToSymbolTable + 18 * index);
+	for (size_t i = 0; i < 18; i++) {
+		sym->auxFile.FileName[i] = epep_read_u8(epep);
+	}
+	return 1;
+}
+
+int get_string_table_size(Epep *epep, size_t *size) {
+	EPEP_READER_SEEK(epep->reader, epep->coffFileHeader.PointerToSymbolTable + 18 * epep->coffFileHeader.NumberOfSymbols);
+	*size = epep_read_u32(epep);
+	return 1;
+}
+
+int get_string_table(Epep *epep, char *string_table) {
+	size_t size = 0;
+	if (!get_string_table_size(epep, &size)) {
+		return 0;
+	}
+	// A COFF strings table starts with its size
+	*string_table++ = (size & 0x000000ff) >> 0;
+	*string_table++ = (size & 0x0000ff00) >> 8;
+	*string_table++ = (size & 0x00ff0000) >> 16;
+	*string_table++ = (size & 0xff000000) >> 24;
+	for (size_t i = 0; i < size; i++) {
+		*string_table++ = epep_read_u8(epep);
+	}
 	return 1;
 }
