@@ -10,6 +10,10 @@ int main(int argc, char **argv) {
 	}
 	Epep epep = { 0 };
 	FILE *fp = fopen(argv[1], "rb");
+	if (!fp) {
+		printf("File not found: %s\n", argv[1]);
+		return 1;
+	}
 	if (!epep_init(&epep, fp)) {
 		printf("Not PE");
 		return 1;
