@@ -77,7 +77,7 @@ int main(int argc, char **argv) {
 				"Reserved, must be zero"
 			};
 			EpepImageDataDirectory idd = { 0 };
-			if (!epep_get_image_data_directory(&epep, &idd, i)) {
+			if (!epep_get_data_directory(&epep, &idd, i)) {
 				printf("Error #%u from EPEP", epep.error_code);
 				return 1;
 			}

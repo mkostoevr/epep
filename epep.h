@@ -198,7 +198,7 @@ int epep_init(Epep *epep, EPEP_READER reader) {
 	return 1;
 }
 
-int epep_get_image_data_directory(Epep *epep, EpepImageDataDirectory *idd, size_t index) {
+int epep_get_data_directory(Epep *epep, EpepImageDataDirectory *idd, size_t index) {
 	if (index >= epep->optionalHeader.NumberOfRvaAndSizes) {
 		epep->error_code = EPEP_ERR_DATA_DIRECTORY_INDEX_IS_INVALID;
 		return 0;
