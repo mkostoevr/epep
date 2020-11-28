@@ -10,6 +10,12 @@
 #endif
 
 typedef enum {
+	EPEP_INVALID,
+	EPEP_IMAGE,
+	EPEP_OBJECT,
+} EpepKind;
+
+typedef enum {
 	EPEP_ERR_SUCCESS,
 	EPEP_ERR_DATA_DIRECTORY_INDEX_IS_INVALID,
 	EPEP_ERR_SECTION_HEADER_INDEX_IS_INVALID,
@@ -35,6 +41,7 @@ typedef struct {
 
 typedef struct {
 	EPEP_READER reader;
+	EpepKind kind;
 	EpepError error_code;
 	size_t signature_offset_offset;
 	size_t signature_offset;
@@ -119,6 +126,7 @@ static uint64_t epep_read_ptr(Epep *epep) {
 
 int epep_init(Epep *epep, EPEP_READER reader) {
 	*epep = (Epep){ 0 };
+	epep->kind = EPEP_IMAGE;
 	epep->reader = reader;
 	epep->error_code = EPEP_ERR_SUCCESS;
 	epep->signature_offset_offset = 0x3c;
@@ -129,11 +137,15 @@ int epep_init(Epep *epep, EPEP_READER reader) {
 	epep->signature_offset |= epep_read_u8(epep) << 16;
 	epep->signature_offset |= epep_read_u8(epep) << 24;
 	EPEP_READER_SEEK(epep->reader, epep->signature_offset);
-	if (epep_read_u8(epep) != 'P' ||
-		epep_read_u8(epep) != 'E' ||
-		epep_read_u8(epep) != '\0' ||
-		epep_read_u8(epep) != '\0') {
-		return 0;
+	char signature_buf[4];
+	signature_buf[0] = epep_read_u8(epep);
+	signature_buf[1] = epep_read_u8(epep);
+	signature_buf[2] = epep_read_u8(epep);
+	signature_buf[3] = epep_read_u8(epep);
+	if (signature_buf[0] != 'P' || signature_buf[1] != 'E' ||
+		signature_buf[2] != '\0' || signature_buf[3] != '\0') {
+		epep->kind = EPEP_OBJECT;
+		EPEP_READER_SEEK(epep->reader, 0);
 	}
 	epep->coffFileHeader.Machine = epep_read_u16(epep);
 	epep->coffFileHeader.NumberOfSections = epep_read_u16(epep);
@@ -179,7 +191,10 @@ int epep_init(Epep *epep, EPEP_READER reader) {
 		epep->optionalHeader.NumberOfRvaAndSizes = epep_read_u32(epep);
 		epep->first_data_directory_offset = EPEP_READER_TELL(epep->reader);
 	}
-	epep->first_section_header_offset = epep->signature_offset + 4 + sizeof(epep->coffFileHeader) + epep->coffFileHeader.SizeOfOptionalHeader;
+	epep->first_section_header_offset = EPEP_READER_TELL(epep->reader);
+	if (epep->coffFileHeader.SizeOfOptionalHeader != 0) {
+		epep->first_section_header_offset += epep->optionalHeader.NumberOfRvaAndSizes * sizeof(EpepImageDataDirectory);
+	}
 	return 1;
 }
 

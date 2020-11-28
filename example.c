@@ -1,8 +1,15 @@
+#include <stdlib.h>
+#include <stdint.h>
+
 #include "epep.h"
 
-int main() {
+int main(int argc, char **argv) {
+	if (argc < 2) {
+		printf("Usage:\n%s <filename>\n", argv[0]);
+		return 0;
+	}
 	Epep epep = { 0 };
-	FILE *fp = fopen("example.exe", "r");
+	FILE *fp = fopen(argv[1], "r");
 	if (!epep_init(&epep, fp)) {
 		printf("Not PE");
 		return 1;
@@ -75,7 +82,7 @@ int main() {
 				return 1;
 			}
 			printf("  Data directory #%u:\n", i);
-			printf("    Type:           %s\n", dds[i]);
+			printf("    Type:           %s\n", dds[i % 16]);
 			printf("    VirtualAddress: %016x\n", idd.VirtualAddress);
 			printf("    Size:           %016x\n", idd.Size);
 		}
