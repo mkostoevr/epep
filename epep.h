@@ -308,6 +308,11 @@ int get_string_table(Epep *epep, char *string_table) {
 	if (!get_string_table_size(epep, &size)) {
 		return 0;
 	}
-	EPEP_READER_GET_BLOCK(epep->reader, size, string_table);
+	// A COFF strings table starts with its size
+	*string_table++ = (size & 0x000000ff) >> 0;
+	*string_table++ = (size & 0x0000ff00) >> 8;
+	*string_table++ = (size & 0x00ff0000) >> 16;
+	*string_table++ = (size & 0xff000000) >> 24;
+	EPEP_READER_GET_BLOCK(epep->reader, size - 4, string_table);
 	return 1;
 }
