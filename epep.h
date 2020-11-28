@@ -316,3 +316,10 @@ int epep_get_string_table(Epep *epep, char *string_table) {
 	EPEP_READER_GET_BLOCK(epep->reader, size - 4, string_table);
 	return 1;
 }
+
+int epep_get_section_contents(Epep *epep, EpepSectionHeader *sh, void *buf) {
+	size_t size_of_raw_data = sh->SizeOfRawData;
+	EPEP_READER_SEEK(epep->reader, sh->PointerToRawData);
+	EPEP_READER_GET_BLOCK(epep->reader, size_of_raw_data, buf);
+	return 1;
+}
