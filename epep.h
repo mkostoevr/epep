@@ -90,23 +90,23 @@ static uint8_t epep_read_u8(Epep *epep) {
 }
 
 static uint16_t epep_read_u16(Epep *epep) {
-	unsigned l = EPEP_READER_GET(epep->reader);
-	unsigned h = EPEP_READER_GET(epep->reader);
+	unsigned l = epep_read_u8(epep);
+	unsigned h = epep_read_u8(epep);
 	return l | (h << 8);
 }
 
 static uint32_t epep_read_u32(Epep *epep) {
-	unsigned b0 = EPEP_READER_GET(epep->reader);
-	unsigned b1 = EPEP_READER_GET(epep->reader);
-	unsigned b2 = EPEP_READER_GET(epep->reader);
-	unsigned b3 = EPEP_READER_GET(epep->reader);
+	unsigned b0 = epep_read_u8(epep);
+	unsigned b1 = epep_read_u8(epep);
+	unsigned b2 = epep_read_u8(epep);
+	unsigned b3 = epep_read_u8(epep);
 	return b0 | (b1 << 8) | (b2 << 16) | (b3 << 24);
 }
 
 static uint64_t epep_read_u64(Epep *epep) {
 	uint64_t res = 0;
 	for (unsigned i = 0; i < 64; i += 8) {
-		res |= EPEP_READER_GET(epep->reader) << i;
+		res |= epep_read_u8(epep) << i;
 	}
 	return res;
 }
