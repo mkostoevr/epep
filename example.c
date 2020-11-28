@@ -94,13 +94,13 @@ int main(int argc, char **argv) {
 	}
 
 	// Get string table useful to show long names of sections
-	size_t string_table_size = 0;
-	if (!get_string_table_size(&epep, &string_table_size)) {
+	size_t string_table_size = 1;
+	if (epep.kind == EPEP_OBJECT && !get_string_table_size(&epep, &string_table_size)) {
 		printf("Error #%u from EPEP at %s:%d", epep.error_code, __FILE__, __LINE__);
 		return 1;
 	}
 	char *string_table = malloc(string_table_size);
-	if (!get_string_table(&epep, string_table)) {
+	if (epep.kind == EPEP_OBJECT && !get_string_table(&epep, string_table)) {
 		printf("Error #%u from EPEP at %s:%d", epep.error_code, __FILE__, __LINE__);
 		return 1;
 	}
@@ -113,7 +113,7 @@ int main(int argc, char **argv) {
 			return 1;
 		}
 		printf("  Section #%u\n", i);
-		if (sh.Name[0] == '/') {
+		if (epep.kind == EPEP_OBJECT && sh.Name[0] == '/') {
 			printf("    Name:                 %s\n", &string_table[atoi(sh.Name + 1)]);
 		} else {
 			printf("    Name:                 %.*s\n", 8, sh.Name);
@@ -129,7 +129,7 @@ int main(int argc, char **argv) {
 		printf("    Characteristics:      %08x\n", sh.Characteristics);
 	}
 	printf("\n");
-	if (epep.coffFileHeader.NumberOfSymbols != 0) {
+	if (epep.kind == EPEP_OBJECT && epep.coffFileHeader.NumberOfSymbols != 0) {
 		printf("Symbols:\n");
 		for (size_t i = 0; i < epep.coffFileHeader.NumberOfSymbols; i++) {
 			EpepCoffSymbol sym = { 0 };
