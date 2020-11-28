@@ -1,9 +1,19 @@
+// Dependencies:
+// <stdint.h> or any another source of uint64_t, uint32_t, uint16_t, uint8_t, size_t
+
 #ifndef EPEP_READER
 #include <stdio.h>
 #define EPEP_READER FILE *
 #define EPEP_READER_GET(reader) getc(reader)
 #define EPEP_READER_SEEK(reader, offset) fseek(reader, offset, SEEK_SET)
+#define EPEP_READER_TELL(reader) ftell(reader)
 #endif
+
+typedef enum {
+	EPEP_ERR_SUCCESS,
+	EPEP_ERR_DATA_DIRECTORY_INDEX_IS_INVALID,
+	EPEP_ERR_SECTION_HEADER_INDEX_IS_INVALID,
+} EpepError;
 
 typedef struct {
 	uint32_t VirtualAddress;
@@ -11,10 +21,26 @@ typedef struct {
 } EpepImageDataDirectory;
 
 typedef struct {
+	char Name[8];
+	uint32_t VirtualSize;
+	uint32_t VirtualAddress;
+	uint32_t SizeOfRawData;
+	uint32_t PointerToRawData;
+	uint32_t PointerToRelocations;
+	uint32_t PointerToLinenumbers;
+	uint16_t NumberOfRelocations;
+	uint16_t NumberOfLinenumbers;
+	uint32_t Characteristics;
+} EpepSectionHeader;
+
+typedef struct {
 	EPEP_READER reader;
+	EpepError error_code;
 	size_t signature_offset_offset;
 	size_t signature_offset;
-	struct CoffFileHeader {
+	size_t first_data_directory_offset;
+	size_t first_section_header_offset;
+	struct {
 		uint16_t Machine;
 		uint16_t NumberOfSections;
 		uint32_t TimeDateStamp;
@@ -22,8 +48,8 @@ typedef struct {
 		uint32_t NumberOfSymbols;
 		uint16_t SizeOfOptionalHeader;
 		uint16_t Characteristics;
-	} coffFileHEader;
-	struct OptionalHeader {
+	} coffFileHeader;
+	struct {
 		// Standard fields
 		uint16_t Magic;
 		uint8_t MajorLinkerVersion;
@@ -59,13 +85,17 @@ typedef struct {
 	} optionalHeader;
 } Epep;
 
-static int epep_read_u16(Epep *epep) {
+static uint8_t epep_read_u8(Epep *epep) {
+	return EPEP_READER_GET(epep->reader);
+}
+
+static uint16_t epep_read_u16(Epep *epep) {
 	unsigned l = EPEP_READER_GET(epep->reader);
 	unsigned h = EPEP_READER_GET(epep->reader);
 	return l | (h << 8);
 }
 
-static int epep_read_u32(Epep *epep) {
+static uint32_t epep_read_u32(Epep *epep) {
 	unsigned b0 = EPEP_READER_GET(epep->reader);
 	unsigned b1 = EPEP_READER_GET(epep->reader);
 	unsigned b2 = EPEP_READER_GET(epep->reader);
@@ -73,7 +103,7 @@ static int epep_read_u32(Epep *epep) {
 	return b0 | (b1 << 8) | (b2 << 16) | (b3 << 24);
 }
 
-static int epep_read_u64(Epep *epep) {
+static uint64_t epep_read_u64(Epep *epep) {
 	uint64_t res = 0;
 	for (unsigned i = 0; i < 64; i += 8) {
 		res |= EPEP_READER_GET(epep->reader) << i;
@@ -81,41 +111,42 @@ static int epep_read_u64(Epep *epep) {
 	return res;
 }
 
-static int epep_read_ptr(Epep *epep) {
+static uint64_t epep_read_ptr(Epep *epep) {
 	return epep->optionalHeader.Magic == 0x10b
 		? epep_read_u32(epep)
 		: epep_read_u64(epep);
 }
 
 int epep_init(Epep *epep, EPEP_READER reader) {
-	memset(epep, 0, sizeof(epep));
+	*epep = (Epep){ 0 };
 	epep->reader = reader;
+	epep->error_code = EPEP_ERR_SUCCESS;
 	epep->signature_offset_offset = 0x3c;
 	EPEP_READER_SEEK(epep->reader, epep->signature_offset_offset);
 	epep->signature_offset = 0;
-	epep->signature_offset |= EPEP_READER_GET(epep->reader);
-	epep->signature_offset |= EPEP_READER_GET(epep->reader) << 8;
-	epep->signature_offset |= EPEP_READER_GET(epep->reader) << 16;
-	epep->signature_offset |= EPEP_READER_GET(epep->reader) << 24;
+	epep->signature_offset |= epep_read_u8(epep);
+	epep->signature_offset |= epep_read_u8(epep) << 8;
+	epep->signature_offset |= epep_read_u8(epep) << 16;
+	epep->signature_offset |= epep_read_u8(epep) << 24;
 	EPEP_READER_SEEK(epep->reader, epep->signature_offset);
-	if (EPEP_READER_GET(epep->reader) != 'P' ||
-		EPEP_READER_GET(epep->reader) != 'E' ||
-		EPEP_READER_GET(epep->reader) != '\0' ||
-		EPEP_READER_GET(epep->reader) != '\0') {
+	if (epep_read_u8(epep) != 'P' ||
+		epep_read_u8(epep) != 'E' ||
+		epep_read_u8(epep) != '\0' ||
+		epep_read_u8(epep) != '\0') {
 		return 0;
 	}
-	epep->coffFileHEader.Machine = epep_read_u16(epep);
-	epep->coffFileHEader.NumberOfSymbols = epep_read_u16(epep);
-	epep->coffFileHEader.TimeDateStamp = epep_read_u32(epep);
-	epep->coffFileHEader.PointerToSymbolTable = epep_read_u32(epep);
-	epep->coffFileHEader.NumberOfSymbols = epep_read_u32(epep);
-	epep->coffFileHEader.SizeOfOptionalHeader = epep_read_u16(epep);
-	epep->coffFileHEader.Characteristics = epep_read_u16(epep);
-	if (epep->coffFileHEader.SizeOfOptionalHeader != 0) {
+	epep->coffFileHeader.Machine = epep_read_u16(epep);
+	epep->coffFileHeader.NumberOfSections = epep_read_u16(epep);
+	epep->coffFileHeader.TimeDateStamp = epep_read_u32(epep);
+	epep->coffFileHeader.PointerToSymbolTable = epep_read_u32(epep);
+	epep->coffFileHeader.NumberOfSymbols = epep_read_u32(epep);
+	epep->coffFileHeader.SizeOfOptionalHeader = epep_read_u16(epep);
+	epep->coffFileHeader.Characteristics = epep_read_u16(epep);
+	if (epep->coffFileHeader.SizeOfOptionalHeader != 0) {
 		// Standard fields
 		epep->optionalHeader.Magic = epep_read_u16(epep);
-		epep->optionalHeader.MajorLinkerVersion = EPEP_READER_GET(epep->reader);
-		epep->optionalHeader.MinorLinkerVersion = EPEP_READER_GET(epep->reader);
+		epep->optionalHeader.MajorLinkerVersion = epep_read_u8(epep);
+		epep->optionalHeader.MinorLinkerVersion = epep_read_u8(epep);
 		epep->optionalHeader.SizeOfCode = epep_read_u32(epep);
 		epep->optionalHeader.SizeOfInitializedData = epep_read_u32(epep);
 		epep->optionalHeader.SizeOfUninitializedData = epep_read_u32(epep);
@@ -146,10 +177,40 @@ int epep_init(Epep *epep, EPEP_READER reader) {
 		epep->optionalHeader.SizeOfHeapCommit = epep_read_ptr(epep);
 		epep->optionalHeader.LoaderFlags = epep_read_u32(epep);
 		epep->optionalHeader.NumberOfRvaAndSizes = epep_read_u32(epep);
+		epep->first_data_directory_offset = EPEP_READER_TELL(epep->reader);
 	}
+	epep->first_section_header_offset = epep->signature_offset + 4 + sizeof(epep->coffFileHeader) + epep->coffFileHeader.SizeOfOptionalHeader;
 	return 1;
 }
 
-void epep_get_image_data_directory(Epep *epep, EpepImageDataDirectory *idd) {
-	
+int epep_get_image_data_directory(Epep *epep, EpepImageDataDirectory *idd, size_t index) {
+	if (index >= epep->optionalHeader.NumberOfRvaAndSizes) {
+		epep->error_code = EPEP_ERR_DATA_DIRECTORY_INDEX_IS_INVALID;
+		return 0;
+	}
+	EPEP_READER_SEEK(epep->reader, epep->first_data_directory_offset + sizeof(EpepImageDataDirectory) * index);
+	idd->VirtualAddress = epep_read_u32(epep);
+	idd->Size = epep_read_u32(epep);
+	return 1;
+}
+
+int epep_get_section_header(Epep *epep, EpepSectionHeader *sh, size_t index) {
+	if (index >= epep->coffFileHeader.NumberOfSections) {
+		epep->error_code = EPEP_ERR_SECTION_HEADER_INDEX_IS_INVALID;
+		return 0;
+	}
+	EPEP_READER_SEEK(epep->reader, epep->first_section_header_offset + sizeof(EpepSectionHeader) * index);
+	for (int i = 0; i < 8; i++) {
+		sh->Name[i] = epep_read_u8(epep);
+	}
+	sh->VirtualSize = epep_read_u32(epep);
+	sh->VirtualAddress = epep_read_u32(epep);
+	sh->SizeOfRawData = epep_read_u32(epep);
+	sh->PointerToRawData = epep_read_u32(epep);
+	sh->PointerToRelocations = epep_read_u32(epep);
+	sh->PointerToLinenumbers = epep_read_u32(epep);
+	sh->NumberOfRelocations = epep_read_u16(epep);
+	sh->NumberOfLinenumbers = epep_read_u16(epep);
+	sh->Characteristics = epep_read_u32(epep);
+	return 1;
 }
