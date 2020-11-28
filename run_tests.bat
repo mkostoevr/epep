@@ -1,0 +1,1 @@
+tcc example.c -run
