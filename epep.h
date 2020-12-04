@@ -10,6 +10,10 @@
 #define EPEP_READER_GET_BLOCK(reader, size, buf) fread(buf, 1, size, reader);
 #endif
 
+//
+// Public declarations
+//
+
 typedef enum {
 	EPEP_INVALID,
 	EPEP_IMAGE,
@@ -142,6 +146,40 @@ typedef struct {
 		uint32_t NumberOfRvaAndSizes;
 	} optionalHeader;
 } Epep;
+
+//
+// Public functions
+//
+
+/// Constructor of the general information container
+int epep_init(Epep *epep, EPEP_READER reader);
+
+/// Gives Data Directiry by its index
+int epep_get_data_directory(Epep *epep, EpepImageDataDirectory *idd, size_t index);
+
+/// Gives Section Header by its index
+int epep_get_section_header(Epep *epep, EpepSectionHeader *sh, size_t index);
+
+/// Gives COFF Symbol by its index
+int epep_get_symbol(Epep *epep, EpepCoffSymbol *sym, size_t index);
+
+/// Gives COFF string table size
+int epep_get_string_table_size(Epep *epep, size_t *size);
+
+/// Gives COFF string table
+int epep_get_string_table(Epep *epep, char *string_table);
+
+/// Gives section contents by Section Header
+int epep_get_section_contents(Epep *epep, EpepSectionHeader *sh, void *buf);
+
+/// Gives section header by RVA
+int epep_get_section_header_by_rva(Epep *epep, EpepSectionHeader *sh, size_t addr);
+
+//
+// The code
+//
+
+#ifdef EPEP_INST
 
 static uint8_t epep_read_u8(Epep *epep) {
 	return EPEP_READER_GET(epep->reader);
@@ -335,3 +373,5 @@ int epep_get_section_header_by_rva(Epep *epep, EpepSectionHeader *sh, size_t add
 	}
 	return 0;
 }
+
+#endif // EPEP_INST

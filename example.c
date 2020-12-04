@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 
+#define EPEP_INST
 #include "epep.h"
 
 int main(int argc, char **argv) {
