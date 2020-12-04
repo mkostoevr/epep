@@ -196,6 +196,9 @@ int epep_read_import_table_offset(Epep *epep);
 /// Gives Import Directory by index
 int epep_get_import_directory_by_index(Epep *epep, EpepImportDirectory *import_directory, size_t index);
 
+/// Gives name of Import Directory (library)
+int epep_get_import_directory_name_s(Epep *epep, EpepImportDirectory *import_directory, char *name, size_t name_max);
+
 /// Gives Import Lookup by import directory and index
 int epep_get_import_directory_lookup_by_index(Epep *epep, EpepImportDirectory *import_directory, size_t *lookup, size_t index);
 
