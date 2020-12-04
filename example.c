@@ -84,7 +84,7 @@ int main(int argc, char **argv) {
 				"Reserved, must be zero"
 			};
 			EpepImageDataDirectory idd = { 0 };
-			if (!epep_get_data_directory(&epep, &idd, i)) {
+			if (!epep_get_data_directory_by_index(&epep, &idd, i)) {
 				return ERROR(epep);
 			}
 			printf("  Data directory #%u:\n", i);
@@ -112,7 +112,7 @@ int main(int argc, char **argv) {
 	printf("Section Table:\n");
 	for (size_t i = 0; i < epep.coffFileHeader.NumberOfSections; i++) {
 		EpepSectionHeader sh = { 0 };
-		if (!epep_get_section_header(&epep, &sh, i)) {
+		if (!epep_get_section_header_by_index(&epep, &sh, i)) {
 			return ERROR(epep);
 		}
 		printf("  Section #%u\n", i);
@@ -136,7 +136,7 @@ int main(int argc, char **argv) {
 		printf("Symbols:\n");
 		for (size_t i = 0; i < epep.coffFileHeader.NumberOfSymbols; i++) {
 			EpepCoffSymbol sym = { 0 };
-			if (!epep_get_symbol(&epep, &sym, i)) {
+			if (!epep_get_symbol_by_index(&epep, &sym, i)) {
 				return ERROR(epep);
 			}
 			printf("  Symbol #%u\n", i);
@@ -190,7 +190,7 @@ int main(int argc, char **argv) {
 				if (!epep_get_lookup_name_s(&epep, lookup, name, name_max)) {
 					return ERROR(epep);
 				}
-				printf("      Lookup: %016x (%s)\n", lookup, name);
+				printf("      Lookup:              %016x (%s)\n", lookup, name);
 			}
 		}
 	}

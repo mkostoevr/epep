@@ -167,13 +167,13 @@ typedef struct {
 int epep_init(Epep *epep, EPEP_READER reader);
 
 /// Gives Data Directiry by its index
-int epep_get_data_directory(Epep *epep, EpepImageDataDirectory *idd, size_t index);
+int epep_get_data_directory_by_index(Epep *epep, EpepImageDataDirectory *idd, size_t index);
 
 /// Gives Section Header by its index
-int epep_get_section_header(Epep *epep, EpepSectionHeader *sh, size_t index);
+int epep_get_section_header_by_index(Epep *epep, EpepSectionHeader *sh, size_t index);
 
 /// Gives COFF Symbol by its index
-int epep_get_symbol(Epep *epep, EpepCoffSymbol *sym, size_t index);
+int epep_get_symbol_by_index(Epep *epep, EpepCoffSymbol *sym, size_t index);
 
 /// Gives COFF string table size
 int epep_get_string_table_size(Epep *epep, size_t *size);
@@ -323,7 +323,7 @@ int epep_init(Epep *epep, EPEP_READER reader) {
 	return 1;
 }
 
-int epep_get_data_directory(Epep *epep, EpepImageDataDirectory *idd, size_t index) {
+int epep_get_data_directory_by_index(Epep *epep, EpepImageDataDirectory *idd, size_t index) {
 	if (index >= epep->optionalHeader.NumberOfRvaAndSizes) {
 		epep->error_code = EPEP_ERR_DATA_DIRECTORY_INDEX_IS_INVALID;
 		return 0;
@@ -334,7 +334,7 @@ int epep_get_data_directory(Epep *epep, EpepImageDataDirectory *idd, size_t inde
 	return 1;
 }
 
-int epep_get_section_header(Epep *epep, EpepSectionHeader *sh, size_t index) {
+int epep_get_section_header_by_index(Epep *epep, EpepSectionHeader *sh, size_t index) {
 	if (index >= epep->coffFileHeader.NumberOfSections) {
 		epep->error_code = EPEP_ERR_SECTION_HEADER_INDEX_IS_INVALID;
 		return 0;
@@ -355,7 +355,7 @@ int epep_get_section_header(Epep *epep, EpepSectionHeader *sh, size_t index) {
 	return 1;
 }
 
-int epep_get_symbol(Epep *epep, EpepCoffSymbol *sym, size_t index) {
+int epep_get_symbol_by_index(Epep *epep, EpepCoffSymbol *sym, size_t index) {
 	if (epep->kind != EPEP_OBJECT) {
 		epep->error_code = EPEP_ERR_NOT_AN_OBJECT;
 		return 0;
@@ -401,7 +401,7 @@ int epep_get_section_contents(Epep *epep, EpepSectionHeader *sh, void *buf) {
 int epep_get_section_header_by_rva(Epep *epep, EpepSectionHeader *sh, size_t addr) {
 	EpepSectionHeader sh0 = { 0 };
 	for (size_t i = 0; i < epep->coffFileHeader.NumberOfSections; i++) {
-		epep_get_section_header(epep, &sh0, i);
+		epep_get_section_header_by_index(epep, &sh0, i);
 		if (addr >= sh0.VirtualAddress && addr < (sh0.VirtualAddress + sh0.VirtualSize)) {
 			*sh = sh0;
 			return 1;
@@ -426,7 +426,7 @@ int epep_get_file_offset_by_rva(Epep *epep, size_t *offset, size_t addr) {
 
 int epep_read_import_table_offset(Epep *epep) {
 	EpepImageDataDirectory import_table_dd = { 0 };
-	if (!epep_get_data_directory(epep, &import_table_dd, 1)) {
+	if (!epep_get_data_directory_by_index(epep, &import_table_dd, 1)) {
 		return 0;
 	}
 	if (!epep_get_file_offset_by_rva(epep, &epep->import_table_offset, import_table_dd.VirtualAddress)) {
