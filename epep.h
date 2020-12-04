@@ -30,6 +30,14 @@ typedef enum {
 } EpepError;
 
 typedef struct {
+	uint32_t ImportLookupTableRva;
+	uint32_t TimeDateStamp;
+	uint32_t ForwarderChain;
+	uint32_t NameRva;
+	uint32_t ImportAddressTableRva;
+} EpepImportDirectory;
+
+typedef struct {
 	uint32_t VirtualAddress;
 	uint32_t Size;
 } EpepImageDataDirectory;
@@ -103,6 +111,7 @@ typedef struct {
 	size_t signature_offset;
 	size_t first_data_directory_offset;
 	size_t first_section_header_offset;
+	size_t import_table_offset;
 	struct {
 		uint16_t Machine;
 		uint16_t NumberOfSections;
@@ -175,6 +184,15 @@ int epep_get_section_contents(Epep *epep, EpepSectionHeader *sh, void *buf);
 
 /// Gives section header by RVA
 int epep_get_section_header_by_rva(Epep *epep, EpepSectionHeader *sh, size_t addr);
+
+/// Gives file offset corresponding to RVA is any, returns 0 othervice
+int epep_get_file_offset_by_rva(Epep *epep, size_t *offset, size_t addr);
+
+/// Places offset of import table into epep structure
+int epep_read_import_table_offset(Epep *epep);
+
+/// Gives Import Directory by index
+int epep_get_import_directory_by_index(Epep *epep, EpepImportDirectory *idir, size_t index);
 
 //
 // The code
@@ -386,6 +404,28 @@ int epep_get_file_offset_by_rva(Epep *epep, size_t *offset, size_t addr) {
 		return 0;
 	}
 	*offset = sh.PointerToRawData + diff;
+	return 1;
+}
+
+int epep_read_import_table_offset(Epep *epep) {
+	EpepImageDataDirectory import_table_dd = { 0 };
+	if (!epep_get_data_directory(epep, &import_table_dd, 1)) {
+		return 0;
+	}
+	if (!epep_get_file_offset_by_rva(epep, &epep->import_table_offset, import_table_dd.VirtualAddress)) {
+		return 0;
+	}
+	return 1;
+}
+
+int epep_get_import_directory_by_index(Epep *epep, EpepImportDirectory *import_directory, size_t index) {
+	if (epep->import_table_offset == 0) {
+		if (!epep_read_import_table_offset(epep)) {
+			return 0;
+		}
+	}
+	EPEP_READER_SEEK(epep->reader, epep->import_table_offset + index * sizeof(*import_directory));
+	EPEP_READER_GET_BLOCK(epep->reader, sizeof(*import_directory), import_directory);
 	return 1;
 }
 

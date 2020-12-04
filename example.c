@@ -4,6 +4,8 @@
 #define EPEP_INST
 #include "epep.h"
 
+#define ERROR(epep) (printf("Error #%u from EPEP at " __FILE__ ": %u", epep.error_code, __LINE__), 1)
+
 int main(int argc, char **argv) {
 	if (argc < 2) {
 		printf("Usage:\n%s <filename>\n", argv[0]);
@@ -83,8 +85,7 @@ int main(int argc, char **argv) {
 			};
 			EpepImageDataDirectory idd = { 0 };
 			if (!epep_get_data_directory(&epep, &idd, i)) {
-				printf("Error #%u from EPEP", epep.error_code);
-				return 1;
+				return ERROR(epep);
 			}
 			printf("  Data directory #%u:\n", i);
 			printf("    Type:           %s\n", dds[i % 16]);
@@ -101,21 +102,18 @@ int main(int argc, char **argv) {
 	// Get string table useful to show long names of sections
 	size_t string_table_size = 1;
 	if (epep.kind == EPEP_OBJECT && !epep_get_string_table_size(&epep, &string_table_size)) {
-		printf("Error #%u from EPEP at %s:%d", epep.error_code, __FILE__, __LINE__);
-		return 1;
+		return ERROR(epep);
 	}
 	char *string_table = malloc(string_table_size);
 	if (epep.kind == EPEP_OBJECT && !epep_get_string_table(&epep, string_table)) {
-		printf("Error #%u from EPEP at %s:%d", epep.error_code, __FILE__, __LINE__);
-		return 1;
+		return ERROR(epep);
 	}
 
 	printf("Section Table:\n");
 	for (size_t i = 0; i < epep.coffFileHeader.NumberOfSections; i++) {
 		EpepSectionHeader sh = { 0 };
 		if (!epep_get_section_header(&epep, &sh, i)) {
-			printf("Error #%u from EPEP during section headers parsing", epep.error_code);
-			return 1;
+			return ERROR(epep);
 		}
 		printf("  Section #%u\n", i);
 		if (epep.kind == EPEP_OBJECT && sh.Name[0] == '/') {
@@ -139,8 +137,7 @@ int main(int argc, char **argv) {
 		for (size_t i = 0; i < epep.coffFileHeader.NumberOfSymbols; i++) {
 			EpepCoffSymbol sym = { 0 };
 			if (!epep_get_symbol(&epep, &sym, i)) {
-				printf("Error #%u from EPEP during symbols parsing", epep.error_code);
-				return 1;
+				return ERROR(epep);
 			}
 			printf("  Symbol #%u\n", i);
 			if (sym.symbol.Zeroes == 0) {
@@ -156,6 +153,25 @@ int main(int argc, char **argv) {
 			for (size_t j = 0; j < sym.symbol.NumberOfAuxSymbols; j++) {
 				i++;
 			}
+		}
+	}
+
+	if (epep.kind == EPEP_IMAGE) {
+		printf("Import Directory Table:\n");
+		for (size_t i = 0; i < 255; i++) {
+			EpepImportDirectory import_directory = { 0 };
+			if (!epep_get_import_directory_by_index(&epep, &import_directory, i)) {
+				return ERROR(epep);
+			}
+			if (import_directory.NameRva == 0) {
+				break;
+			}
+			printf("  Import Directory #%lu:\n", i);
+			printf("    ImportLookupTableRva:  %08x\n", import_directory.ImportLookupTableRva);
+			printf("    TimeDateStamp:         %08x\n", import_directory.TimeDateStamp);
+			printf("    ForwarderChain:        %08x\n", import_directory.ForwarderChain);
+			printf("    NameRva:               %08x\n", import_directory.NameRva);
+			printf("    ImportAddressTableRva: %08x\n", import_directory.ImportAddressTableRva);
 		}
 	}
 	return 0;
