@@ -158,7 +158,7 @@ int main(int argc, char **argv) {
 
 	if (epep.kind == EPEP_IMAGE) {
 		printf("Import Directory Table:\n");
-		for (size_t i = 0; i < 255; i++) {
+		for (size_t i = 0; i < 1024; i++) {
 			EpepImportDirectory import_directory = { 0 };
 			if (!epep_get_import_directory_by_index(&epep, &import_directory, i)) {
 				return ERROR(epep);
@@ -172,6 +172,16 @@ int main(int argc, char **argv) {
 			printf("    ForwarderChain:        %08x\n", import_directory.ForwarderChain);
 			printf("    NameRva:               %08x\n", import_directory.NameRva);
 			printf("    ImportAddressTableRva: %08x\n", import_directory.ImportAddressTableRva);
+			for (size_t j = 0; j < 1024 * 1024; j++) {
+				size_t lookup = 0;
+				if (!epep_get_import_directory_lookup_by_index(&epep, &import_directory, &lookup, j)) {
+					return ERROR(epep);
+				}
+				if (lookup == 0) {
+					break;
+				}
+				printf("      Lookup: %016x\n", lookup);
+			}
 		}
 	}
 	return 0;

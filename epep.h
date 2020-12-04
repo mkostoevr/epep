@@ -192,13 +192,24 @@ int epep_get_file_offset_by_rva(Epep *epep, size_t *offset, size_t addr);
 int epep_read_import_table_offset(Epep *epep);
 
 /// Gives Import Directory by index
-int epep_get_import_directory_by_index(Epep *epep, EpepImportDirectory *idir, size_t index);
+int epep_get_import_directory_by_index(Epep *epep, EpepImportDirectory *import_directory, size_t index);
+
+/// Gives Import Lookup by import directory and index
+int epep_get_import_directory_lookup_by_index(Epep *epep, EpepImportDirectory *import_directory, size_t *lookup, size_t index);
 
 //
 // The code
 //
 
 #ifdef EPEP_INST
+
+static int is_pe32(Epep *epep) {
+	return epep->optionalHeader.Magic == 0x10b;
+}
+
+static int is_pe32p(Epep *epep) {
+	return epep->optionalHeader.Magic == 0x20b;
+}
 
 static uint8_t epep_read_u8(Epep *epep) {
 	return EPEP_READER_GET(epep->reader);
@@ -227,9 +238,7 @@ static uint64_t epep_read_u64(Epep *epep) {
 }
 
 static uint64_t epep_read_ptr(Epep *epep) {
-	return epep->optionalHeader.Magic == 0x10b
-		? epep_read_u32(epep)
-		: epep_read_u64(epep);
+	return is_pe32(epep) ? epep_read_u32(epep) : epep_read_u64(epep);
 }
 
 int epep_init(Epep *epep, EPEP_READER reader) {
@@ -272,7 +281,7 @@ int epep_init(Epep *epep, EPEP_READER reader) {
 		epep->optionalHeader.SizeOfUninitializedData = epep_read_u32(epep);
 		epep->optionalHeader.AddressOfEntryPoint = epep_read_u32(epep);
 		epep->optionalHeader.BaseOfCode = epep_read_u32(epep);
-		if (epep->optionalHeader.Magic == 0x10b) {
+		if (is_pe32(epep)) {
 			epep->optionalHeader.BaseOfData = epep_read_u32(epep);
 		}
 		// Windows-specific fields
@@ -426,6 +435,18 @@ int epep_get_import_directory_by_index(Epep *epep, EpepImportDirectory *import_d
 	}
 	EPEP_READER_SEEK(epep->reader, epep->import_table_offset + index * sizeof(*import_directory));
 	EPEP_READER_GET_BLOCK(epep->reader, sizeof(*import_directory), import_directory);
+	return 1;
+}
+
+int epep_get_import_directory_lookup_by_index(Epep *epep, EpepImportDirectory *import_directory, size_t *lookup, size_t index) {
+	size_t first_lookup_offset = 0;
+	if (!epep_get_file_offset_by_rva(epep, &first_lookup_offset, import_directory->ImportLookupTableRva)) {
+		return 0;
+	}
+	size_t size_of_lookup = is_pe32(epep) ? 4 : 8;
+	size_t lookup_offset = first_lookup_offset + size_of_lookup * index;
+	EPEP_READER_SEEK(epep->reader, lookup_offset);
+	EPEP_READER_GET_BLOCK(epep->reader, size_of_lookup, lookup);
 	return 1;
 }
 
