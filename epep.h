@@ -26,6 +26,7 @@ typedef enum {
 	EPEP_ERR_SECTION_HEADER_INDEX_IS_INVALID,
 	EPEP_ERR_SYMBOL_INDEX_IS_INVALID,
 	EPEP_ERR_NOT_AN_OBJECT,
+	EPEP_ERR_ADDRESS_IS_OUT_OF_SECTION_RAW_DATA,
 } EpepError;
 
 typedef struct {
@@ -372,6 +373,20 @@ int epep_get_section_header_by_rva(Epep *epep, EpepSectionHeader *sh, size_t add
 		}
 	}
 	return 0;
+}
+
+int epep_get_file_offset_by_rva(Epep *epep, size_t *offset, size_t addr) {
+	EpepSectionHeader sh = { 0 };
+	if (!epep_get_section_header_by_rva(epep, &sh, addr)) {
+		return 0;
+	}
+	size_t diff = addr - sh.VirtualAddress;
+	if (diff >= sh.SizeOfRawData) {
+		epep->error_code = EPEP_ERR_ADDRESS_IS_OUT_OF_SECTION_RAW_DATA;
+		return 0;
+	}
+	*offset = sh.PointerToRawData + diff;
+	return 1;
 }
 
 #endif // EPEP_INST
