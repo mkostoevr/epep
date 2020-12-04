@@ -141,9 +141,9 @@ int main(int argc, char **argv) {
 			}
 			printf("  Symbol #%u\n", i);
 			if (sym.symbol.Zeroes == 0) {
-				printf("    Name: %s\n", &string_table[sym.symbol.Offset]);
+				printf("    Name:               %s\n", &string_table[sym.symbol.Offset]);
 			} else {
-				printf("    Name: %.*s\n", 8, sym.symbol.ShortName);
+				printf("    Name:               %.*s\n", 8, sym.symbol.ShortName);
 			}
 			printf("    Value:              %08x\n", sym.symbol.Value);
 			printf("    SectionNumber:      %04x\n", sym.symbol.SectionNumber);
