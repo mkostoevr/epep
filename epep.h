@@ -27,6 +27,8 @@ typedef enum {
 	EPEP_ERR_SYMBOL_INDEX_IS_INVALID,
 	EPEP_ERR_NOT_AN_OBJECT,
 	EPEP_ERR_ADDRESS_IS_OUT_OF_SECTION_RAW_DATA,
+	EPEP_ERR_OUTPUT_CAPACITY_IS_ZERO,
+	EPEP_ERR_OUTPUT_IS_NULL,
 } EpepError;
 
 typedef struct {
@@ -196,6 +198,9 @@ int epep_get_import_directory_by_index(Epep *epep, EpepImportDirectory *import_d
 
 /// Gives Import Lookup by import directory and index
 int epep_get_import_directory_lookup_by_index(Epep *epep, EpepImportDirectory *import_directory, size_t *lookup, size_t index);
+
+/// Gives name of Import Directory Lookup (imported symbol) or nothing if imported by ordinal
+int epep_get_lookup_name_s(Epep *epep, size_t lookup, char *name, size_t name_max);
 
 //
 // The code
@@ -447,6 +452,36 @@ int epep_get_import_directory_lookup_by_index(Epep *epep, EpepImportDirectory *i
 	size_t lookup_offset = first_lookup_offset + size_of_lookup * index;
 	EPEP_READER_SEEK(epep->reader, lookup_offset);
 	EPEP_READER_GET_BLOCK(epep->reader, size_of_lookup, lookup);
+	return 1;
+}
+
+int epep_get_lookup_name_s(Epep *epep, size_t lookup, char *name, size_t name_max) {
+	if (name_max == 0) {
+		epep->error_code = EPEP_ERR_OUTPUT_CAPACITY_IS_ZERO;
+		return 0;
+	}
+	if (name == NULL) {
+		epep->error_code = EPEP_ERR_OUTPUT_IS_NULL;
+		return 0;
+	}
+	uint64_t mask = is_pe32(epep) ? 0x80000000 : 0x8000000000000000;
+	if (lookup & mask) {
+		name[0] = '\0';
+		return 1;
+	}
+	// ~0x80000000 == 0x7fffffff
+	// ~0x8000000000000000 == 0x7fffffffffffffff
+	// Like (everything but the enabled bit)
+	// It probably would better to just use `if`, I wouldn't have to write all this here...
+	size_t name_rva = lookup & ~mask;
+	size_t name_offset = 0;
+	if (!epep_get_file_offset_by_rva(epep, &name_offset, name_rva)) {
+		return 0;
+	}
+	// skip 2 bytes (Name Table :: Hint)
+	name_offset += 2;
+	EPEP_READER_SEEK(epep->reader, name_offset);
+	EPEP_READER_GET_BLOCK(epep->reader, name_max, name);
 	return 1;
 }
 

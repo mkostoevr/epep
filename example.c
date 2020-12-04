@@ -180,7 +180,12 @@ int main(int argc, char **argv) {
 				if (lookup == 0) {
 					break;
 				}
-				printf("      Lookup: %016x\n", lookup);
+				size_t name_max = 1024;
+				char name[name_max];
+				if (!epep_get_lookup_name_s(&epep, lookup, name, name_max)) {
+					return ERROR(epep);
+				}
+				printf("      Lookup: %016x (%s)\n", lookup, name);
 			}
 		}
 	}
