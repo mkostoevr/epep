@@ -443,6 +443,17 @@ int epep_get_import_directory_by_index(Epep *epep, EpepImportDirectory *import_d
 	return 1;
 }
 
+int epep_get_import_directory_name_s(Epep *epep, EpepImportDirectory *import_directory, char *name, size_t name_max) {
+	size_t name_rva = import_directory->NameRva;
+	size_t name_offset = 0;
+	if (!epep_get_file_offset_by_rva(epep, &name_offset, name_rva)) {
+		return 0;
+	}
+	EPEP_READER_SEEK(epep->reader, name_offset);
+	EPEP_READER_GET_BLOCK(epep->reader, name_max, name);
+	return 1;
+}
+
 int epep_get_import_directory_lookup_by_index(Epep *epep, EpepImportDirectory *import_directory, size_t *lookup, size_t index) {
 	size_t first_lookup_offset = 0;
 	if (!epep_get_file_offset_by_rva(epep, &first_lookup_offset, import_directory->ImportLookupTableRva)) {

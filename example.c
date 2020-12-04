@@ -166,11 +166,16 @@ int main(int argc, char **argv) {
 			if (import_directory.NameRva == 0) {
 				break;
 			}
+			size_t name_max = 1024;
+			char name[name_max];
+			if (!epep_get_import_directory_name_s(&epep, &import_directory, name, name_max)) {
+				return ERROR(epep);
+			}
 			printf("  Import Directory #%lu:\n", i);
+			printf("    Name:                  %s\n", name);
 			printf("    ImportLookupTableRva:  %08x\n", import_directory.ImportLookupTableRva);
 			printf("    TimeDateStamp:         %08x\n", import_directory.TimeDateStamp);
 			printf("    ForwarderChain:        %08x\n", import_directory.ForwarderChain);
-			printf("    NameRva:               %08x\n", import_directory.NameRva);
 			printf("    ImportAddressTableRva: %08x\n", import_directory.ImportAddressTableRva);
 			for (size_t j = 0; j < 1024 * 1024; j++) {
 				size_t lookup = 0;
