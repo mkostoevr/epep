@@ -204,12 +204,18 @@ int main(int argc, char **argv) {
 		if (!epep_read_export_directory(&epep)) {
 			return ERROR(epep);
 		}
+		size_t name_max = 256;
+		char name[name_max];
+		strcpy(name, "undefined");
+		if (!epep_get_dll_name_s(&epep, name, name_max)) {
+			return ERROR(epep);
+		}
 		printf("Export Directory:\n");
 		printf("  ExportFlags:           %08x\n", epep.export_directory.ExportFlags);
 		printf("  TimeDateStamp:         %08x\n", epep.export_directory.TimeDateStamp);
 		printf("  MajorVersion:          %04x\n", epep.export_directory.MajorVersion);
 		printf("  MinorVersion:          %04x\n", epep.export_directory.MinorVersion);
-		printf("  NameRva:               %08x\n", epep.export_directory.NameRva);
+		printf("  NameRva:               %08x (%s)\n", epep.export_directory.NameRva, name);
 		printf("  OrdinalBase:           %08x\n", epep.export_directory.OrdinalBase);
 		printf("  AddressTableEntries:   %08x\n", epep.export_directory.AddressTableEntries);
 		printf("  NumberOfNamePointers:  %08x\n", epep.export_directory.NumberOfNamePointers);
@@ -217,7 +223,7 @@ int main(int argc, char **argv) {
 		printf("  NamePointerRva:        %08x\n", epep.export_directory.NamePointerRva);
 		printf("  OrdinalTableRva:       %08x\n", epep.export_directory.OrdinalTableRva);
 		for (size_t i = 0; i < epep.export_directory.AddressTableEntries; i++) {
-			
+
 		}
 	} else if (epep.error_code) {
 		return ERROR(epep);

@@ -237,6 +237,9 @@ int epep_read_export_table_offset(Epep *epep);
 /// Palces export table into epep structrue
 int epep_read_export_directory(Epep *epep);
 
+/// Gives name of the DLL
+int epep_get_dll_name_s(Epep *epep, char *name, size_t name_max);
+
 //
 // The code
 //
@@ -563,6 +566,16 @@ int epep_read_export_directory(Epep *epep) {
 	}
 	EPEP_READER_SEEK(epep->reader, epep->export_table_offset);
 	EPEP_READER_GET_BLOCK(epep->reader, sizeof(epep->export_directory), &epep->export_directory);
+	return 1;
+}
+
+int epep_get_dll_name_s(Epep *epep, char *name, size_t name_max) {
+	size_t offset = 0;
+	if (!epep_get_file_offset_by_rva(epep, &offset, epep->export_directory.NameRva)) {
+		return 0;
+	}
+	EPEP_READER_SEEK(epep->reader, offset);
+	EPEP_READER_GET_BLOCK(epep->reader, name_max, name);
 	return 1;
 }
 
