@@ -91,8 +91,11 @@ int main(int argc, char **argv) {
 			printf("    Type:           %s\n", dds[i % 16]);
 			printf("    VirtualAddress: %016x\n", idd.VirtualAddress);
 			printf("    Size:           %016x\n", idd.Size);
-			EpepSectionHeader sh = { 0 };
-			if (epep_get_section_header_by_rva(&epep, &sh, idd.VirtualAddress)) {
+			if (idd.VirtualAddress) {
+				EpepSectionHeader sh = { 0 };
+				if (!epep_get_section_header_by_rva(&epep, &sh, idd.VirtualAddress)) {
+					return ERROR(epep);
+				}
 				printf("    Section:        %s\n", sh.Name);
 			}
 		}
@@ -154,9 +157,9 @@ int main(int argc, char **argv) {
 				i++;
 			}
 		}
+		printf("\n");
 	}
-
-	if (epep.kind == EPEP_IMAGE) {
+	if (epep.kind == EPEP_IMAGE && epep_has_import_table(&epep)) {
 		printf("Import Directory Table:\n");
 		for (size_t i = 0; i < 1024; i++) {
 			EpepImportDirectory import_directory = { 0 };
@@ -193,6 +196,31 @@ int main(int argc, char **argv) {
 				printf("      Lookup:              %016x (%s)\n", lookup, name);
 			}
 		}
+		printf("\n");
+	} else if (epep.error_code) {
+		return ERROR(epep);
+	}
+	if (epep.kind == EPEP_IMAGE && epep_has_export_table(&epep)) {
+		if (!epep_read_export_directory(&epep)) {
+			return ERROR(epep);
+		}
+		printf("Export Directory:\n");
+		printf("  ExportFlags:           %08x\n", epep.export_directory.ExportFlags);
+		printf("  TimeDateStamp:         %08x\n", epep.export_directory.TimeDateStamp);
+		printf("  MajorVersion:          %04x\n", epep.export_directory.MajorVersion);
+		printf("  MinorVersion:          %04x\n", epep.export_directory.MinorVersion);
+		printf("  NameRva:               %08x\n", epep.export_directory.NameRva);
+		printf("  OrdinalBase:           %08x\n", epep.export_directory.OrdinalBase);
+		printf("  AddressTableEntries:   %08x\n", epep.export_directory.AddressTableEntries);
+		printf("  NumberOfNamePointers:  %08x\n", epep.export_directory.NumberOfNamePointers);
+		printf("  ExportAddressTableRva: %08x\n", epep.export_directory.ExportAddressTableRva);
+		printf("  NamePointerRva:        %08x\n", epep.export_directory.NamePointerRva);
+		printf("  OrdinalTableRva:       %08x\n", epep.export_directory.OrdinalTableRva);
+		for (size_t i = 0; i < epep.export_directory.AddressTableEntries; i++) {
+			
+		}
+	} else if (epep.error_code) {
+		return ERROR(epep);
 	}
 	return 0;
 }

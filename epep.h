@@ -29,7 +29,13 @@ typedef enum {
 	EPEP_ERR_ADDRESS_IS_OUT_OF_SECTION_RAW_DATA,
 	EPEP_ERR_OUTPUT_CAPACITY_IS_ZERO,
 	EPEP_ERR_OUTPUT_IS_NULL,
+	EPEP_ERR_ADDRESS_IS_OUT_OF_ANY_SECTION,
 } EpepError;
+
+typedef struct {
+	uint32_t ExportRva;
+	uint32_t ForwarderRva;
+} EpepExportAddress;
 
 typedef struct {
 	uint32_t ImportLookupTableRva;
@@ -113,6 +119,7 @@ typedef struct {
 	size_t signature_offset;
 	size_t first_data_directory_offset;
 	size_t first_section_header_offset;
+	size_t export_table_offset;
 	size_t import_table_offset;
 	struct {
 		uint16_t Machine;
@@ -157,6 +164,19 @@ typedef struct {
 		uint32_t LoaderFlags;
 		uint32_t NumberOfRvaAndSizes;
 	} optionalHeader;
+	struct {
+		uint32_t ExportFlags;
+		uint32_t TimeDateStamp;
+		uint16_t MajorVersion;
+		uint16_t MinorVersion;
+		uint32_t NameRva;
+		uint32_t OrdinalBase;
+		uint32_t AddressTableEntries;
+		uint32_t NumberOfNamePointers;
+		uint32_t ExportAddressTableRva;
+		uint32_t NamePointerRva;
+		uint32_t OrdinalTableRva;
+	} export_directory;
 } Epep;
 
 //
@@ -190,6 +210,9 @@ int epep_get_section_header_by_rva(Epep *epep, EpepSectionHeader *sh, size_t add
 /// Gives file offset corresponding to RVA is any, returns 0 othervice
 int epep_get_file_offset_by_rva(Epep *epep, size_t *offset, size_t addr);
 
+/// Returns non-zero if import table exists in the file
+int epep_has_import_table(Epep *epep);
+
 /// Places offset of import table into epep structure
 int epep_read_import_table_offset(Epep *epep);
 
@@ -204,6 +227,15 @@ int epep_get_import_directory_lookup_by_index(Epep *epep, EpepImportDirectory *i
 
 /// Gives name of Import Directory Lookup (imported symbol) or nothing if imported by ordinal
 int epep_get_lookup_name_s(Epep *epep, size_t lookup, char *name, size_t name_max);
+
+/// Returns non-zero if export table exists in the file
+int epep_has_export_table(Epep *epep);
+
+/// Palces offset of export table into epep structrue
+int epep_read_export_table_offset(Epep *epep);
+
+/// Palces export table into epep structrue
+int epep_read_export_directory(Epep *epep);
 
 //
 // The code
@@ -407,6 +439,7 @@ int epep_get_section_header_by_rva(Epep *epep, EpepSectionHeader *sh, size_t add
 			return 1;
 		}
 	}
+	epep->error_code = EPEP_ERR_ADDRESS_IS_OUT_OF_ANY_SECTION;
 	return 0;
 }
 
@@ -422,6 +455,14 @@ int epep_get_file_offset_by_rva(Epep *epep, size_t *offset, size_t addr) {
 	}
 	*offset = sh.PointerToRawData + diff;
 	return 1;
+}
+
+int epep_has_import_table(Epep *epep) {
+	EpepImageDataDirectory idd = { 0 };
+	if (!epep_get_data_directory_by_index(epep, &idd, 1)) {
+		return 0;
+	}
+	return idd.VirtualAddress;
 }
 
 int epep_read_import_table_offset(Epep *epep) {
@@ -492,6 +533,36 @@ int epep_get_lookup_name_s(Epep *epep, size_t lookup, char *name, size_t name_ma
 	name_offset += 2;
 	EPEP_READER_SEEK(epep->reader, name_offset);
 	EPEP_READER_GET_BLOCK(epep->reader, name_max, name);
+	return 1;
+}
+
+int epep_has_export_table(Epep *epep) {
+	EpepImageDataDirectory idd = { 0 };
+	if (!epep_get_data_directory_by_index(epep, &idd, 0)) {
+		return 0;
+	}
+	return idd.VirtualAddress;
+}
+
+int epep_read_export_table_offset(Epep *epep) {
+	EpepImageDataDirectory export_table_dd = { 0 };
+	if (!epep_get_data_directory_by_index(epep, &export_table_dd, 0)) {
+		return 0;
+	}
+	if (!epep_get_file_offset_by_rva(epep, &epep->export_table_offset, export_table_dd.VirtualAddress)) {
+		return 0;
+	}
+	return 1;
+}
+
+int epep_read_export_directory(Epep *epep) {
+	if (epep->export_table_offset == 0) {
+		if (!epep_read_export_table_offset(epep)) {
+			return 0;
+		}
+	}
+	EPEP_READER_SEEK(epep->reader, epep->export_table_offset);
+	EPEP_READER_GET_BLOCK(epep->reader, sizeof(epep->export_directory), &epep->export_directory);
 	return 1;
 }
 
