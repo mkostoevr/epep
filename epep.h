@@ -483,11 +483,7 @@ int epep_get_lookup_name_s(Epep *epep, size_t lookup, char *name, size_t name_ma
 		name[0] = '\0';
 		return 1;
 	}
-	// ~0x80000000 == 0x7fffffff
-	// ~0x8000000000000000 == 0x7fffffffffffffff
-	// Like (everything but the enabled bit)
-	// It probably would better to just use `if`, I wouldn't have to write all this here...
-	size_t name_rva = lookup & ~mask;
+	size_t name_rva = lookup;
 	size_t name_offset = 0;
 	if (!epep_get_file_offset_by_rva(epep, &name_offset, name_rva)) {
 		return 0;
