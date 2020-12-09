@@ -4,7 +4,8 @@
 - PE header (including Data Directories as a part Optional Header)
 - Section Headers
 - COFF Symbols
-- Import Table
+- Imports
+- Exports
 
 ## How to use
 
