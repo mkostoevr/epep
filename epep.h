@@ -37,6 +37,8 @@ typedef enum {
 	EPEP_ERR_OUTPUT_IS_NULL,
 	EPEP_ERR_ADDRESS_IS_OUT_OF_ANY_SECTION,
 	EPEP_ERR_EXPORT_ADDRESS_TABLE_ENTRY_NAME_NOT_FOUND,
+	EPEP_ERR_NO_BASE_RELOCATION_TABLE,
+	EPEP_ERR_BASE_RELOCATION_IS_ALREADY_END,
 } EpepError;
 
 //
@@ -53,6 +55,8 @@ typedef struct {
 	size_t first_section_header_offset;
 	size_t export_table_offset;
 	size_t import_table_offset;
+	size_t base_relocation_table_offset;
+	size_t base_relocation_table_end_offset;
 	struct {
 		uint16_t Machine;
 		uint16_t NumberOfSections;
@@ -288,6 +292,40 @@ int epep_get_export_address_forwarder_s(Epep *epep, EpepExportAddress *export_ad
 /// Returns non-zero if the export address specifies forwarder string
 //! epep_read_export_directory needs to be called before
 int epep_export_address_is_forwarder(Epep *epep, EpepExportAddress *export_address);
+
+//
+// Relocations
+//
+
+typedef struct {
+	size_t offset;
+	uint32_t PageRva;
+	uint32_t BlockSize;
+	uint16_t BaseRelocation[0];
+} EpepBaseRelocationBlock;
+
+typedef union {
+	struct {
+		uint16_t Offset: 12,
+			Type: 4;
+	};
+	uint16_t u16;
+} EpepBaseRelocation;
+
+/// Returns non-zero if the file contains Base Relocations
+int epep_has_base_relocation_table(Epep *epep);
+
+/// Places offset to Base Relocation Table into epep structure
+int epep_read_base_relocation_table_offset(Epep *epep);
+
+/// Gives first Base Relocation Block
+int epep_get_first_base_relocation_block(Epep *epep, EpepBaseRelocationBlock *brb);
+
+/// Gives next Base Relocation Block (replaces contents of the given block)
+int epep_get_next_base_relocation_block(Epep *epep, EpepBaseRelocationBlock *it);
+
+/// Gives Base Relocation by its index in Base Relocation Block
+int epep_get_base_relocation_block_base_relocation_by_index(Epep *epep, EpepBaseRelocationBlock *brb, EpepBaseRelocation *br, size_t index);
 
 #ifdef EPEP_INST
 
@@ -729,6 +767,78 @@ int epep_export_address_is_forwarder(Epep *epep, EpepExportAddress *export_addre
 		return 1;
 	}
 	return 0;
+}
+
+//
+// Relocaions
+//
+
+int epep_has_base_relocation_table(Epep *epep) {
+	EpepImageDataDirectory brtdd = { 0 };
+	if (!epep_get_data_directory_by_index(epep, &brtdd, 5)) {
+		return 0;
+	}
+	if (brtdd.VirtualAddress == 0) {
+		return 0;
+	}
+	return 1;
+}
+
+int epep_read_base_relocation_table_offset(Epep *epep) {
+	EpepImageDataDirectory brtdd = { 0 };
+	if (!epep_get_data_directory_by_index(epep, &brtdd, 5)) {
+		return 0;
+	}
+	if (!epep_get_file_offset_by_rva(epep, &epep->base_relocation_table_offset, brtdd.VirtualAddress)) {
+		return 0;
+	}
+	epep->base_relocation_table_end_offset = epep->base_relocation_table_offset + brtdd.Size;
+	return 1;
+}
+
+int epep_get_first_base_relocation_block(Epep *epep, EpepBaseRelocationBlock *brb) {
+	if (epep->base_relocation_table_offset == 0) {
+		if (!epep_read_base_relocation_table_offset(epep)) {
+			return 0;
+		}
+	}
+	if (epep->base_relocation_table_offset == 0) {
+		epep->error_code = EPEP_ERR_NO_BASE_RELOCATION_TABLE;
+		return 0;
+	}
+	if (!epep_seek(epep, epep->base_relocation_table_offset)) {
+		return 0;
+	}
+	brb->offset = epep->base_relocation_table_offset;
+	brb->PageRva = epep_read_u32(epep);
+	brb->BlockSize = epep_read_u32(epep);
+	return 1;
+}
+
+int epep_get_next_base_relocation_block(Epep *epep, EpepBaseRelocationBlock *it) {
+	if (it->offset == 0) {
+		epep->error_code = EPEP_ERR_BASE_RELOCATION_IS_ALREADY_END;
+		return 0;
+	}
+	it->offset = it->offset + it->BlockSize;
+	if (it->offset >= epep->base_relocation_table_end_offset) {
+		*it = (EpepBaseRelocationBlock){ 0 };
+		return 1;
+	}
+	if (!epep_seek(epep, it->offset)) {
+		return 0;
+	}
+	it->PageRva = epep_read_u32(epep);
+	it->BlockSize = epep_read_u32(epep);
+	return 1;
+}
+
+int epep_get_base_relocation_block_base_relocation_by_index(Epep *epep, EpepBaseRelocationBlock *brb, EpepBaseRelocation *br, size_t index) {
+	if (!epep_seek(epep, brb->offset + 8 + sizeof(EpepBaseRelocation) * index)) {
+		return 0;
+	}
+	br->u16 = epep_read_u16(epep);
+	return 1;
 }
 
 #endif // EPEP_INST
