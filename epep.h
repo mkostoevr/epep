@@ -268,6 +268,16 @@ int epep_export_address_is_forwarder(Epep *epep, EpepExportAddress *export_addre
 
 #ifdef EPEP_INST
 
+static int epep_seek(Epep *epep, size_t offset) {
+	EPEP_READER_SEEK(epep->reader, offset);
+	return 1;
+}
+
+static int epep_read_block(Epep *epep, size_t size, void *block) {
+	EPEP_READER_GET_BLOCK(epep->reader, size, block);
+	return 1;
+}
+
 static int is_pe32(Epep *epep) {
 	return epep->optionalHeader.Magic == 0x10b;
 }
@@ -312,13 +322,13 @@ int epep_init(Epep *epep, EPEP_READER reader) {
 	epep->reader = reader;
 	epep->error_code = EPEP_ERR_SUCCESS;
 	epep->signature_offset_offset = 0x3c;
-	EPEP_READER_SEEK(epep->reader, epep->signature_offset_offset);
+	epep_seek(epep, epep->signature_offset_offset);
 	epep->signature_offset = 0;
 	epep->signature_offset |= epep_read_u8(epep);
 	epep->signature_offset |= epep_read_u8(epep) << 8;
 	epep->signature_offset |= epep_read_u8(epep) << 16;
 	epep->signature_offset |= epep_read_u8(epep) << 24;
-	EPEP_READER_SEEK(epep->reader, epep->signature_offset);
+	epep_seek(epep, epep->signature_offset);
 	char signature_buf[4];
 	signature_buf[0] = epep_read_u8(epep);
 	signature_buf[1] = epep_read_u8(epep);
@@ -327,7 +337,7 @@ int epep_init(Epep *epep, EPEP_READER reader) {
 	if (signature_buf[0] != 'P' || signature_buf[1] != 'E' ||
 		signature_buf[2] != '\0' || signature_buf[3] != '\0') {
 		epep->kind = EPEP_OBJECT;
-		EPEP_READER_SEEK(epep->reader, 0);
+		epep_seek(epep, 0);
 	}
 	epep->coffFileHeader.Machine = epep_read_u16(epep);
 	epep->coffFileHeader.NumberOfSections = epep_read_u16(epep);
@@ -385,7 +395,7 @@ int epep_get_data_directory_by_index(Epep *epep, EpepImageDataDirectory *idd, si
 		epep->error_code = EPEP_ERR_DATA_DIRECTORY_INDEX_IS_INVALID;
 		return 0;
 	}
-	EPEP_READER_SEEK(epep->reader, epep->first_data_directory_offset + sizeof(EpepImageDataDirectory) * index);
+	epep_seek(epep, epep->first_data_directory_offset + sizeof(EpepImageDataDirectory) * index);
 	idd->VirtualAddress = epep_read_u32(epep);
 	idd->Size = epep_read_u32(epep);
 	return 1;
@@ -396,7 +406,7 @@ int epep_get_section_header_by_index(Epep *epep, EpepSectionHeader *sh, size_t i
 		epep->error_code = EPEP_ERR_SECTION_HEADER_INDEX_IS_INVALID;
 		return 0;
 	}
-	EPEP_READER_SEEK(epep->reader, epep->first_section_header_offset + sizeof(EpepSectionHeader) * index);
+	epep_seek(epep, epep->first_section_header_offset + sizeof(EpepSectionHeader) * index);
 	for (int i = 0; i < 8; i++) {
 		sh->Name[i] = epep_read_u8(epep);
 	}
@@ -421,7 +431,7 @@ int epep_get_symbol_by_index(Epep *epep, EpepCoffSymbol *sym, size_t index) {
 		epep->error_code = EPEP_ERR_SYMBOL_INDEX_IS_INVALID;
 		return 0;
 	}
-	EPEP_READER_SEEK(epep->reader, epep->coffFileHeader.PointerToSymbolTable + 18 * index);
+	epep_seek(epep, epep->coffFileHeader.PointerToSymbolTable + 18 * index);
 	for (size_t i = 0; i < 18; i++) {
 		sym->auxFile.FileName[i] = epep_read_u8(epep);
 	}
@@ -429,7 +439,7 @@ int epep_get_symbol_by_index(Epep *epep, EpepCoffSymbol *sym, size_t index) {
 }
 
 int epep_get_string_table_size(Epep *epep, size_t *size) {
-	EPEP_READER_SEEK(epep->reader, epep->coffFileHeader.PointerToSymbolTable + 18 * epep->coffFileHeader.NumberOfSymbols);
+	epep_seek(epep, epep->coffFileHeader.PointerToSymbolTable + 18 * epep->coffFileHeader.NumberOfSymbols);
 	*size = epep_read_u32(epep);
 	return 1;
 }
@@ -444,14 +454,14 @@ int epep_get_string_table(Epep *epep, char *string_table) {
 	*string_table++ = (size & 0x0000ff00) >> 8;
 	*string_table++ = (size & 0x00ff0000) >> 16;
 	*string_table++ = (size & 0xff000000) >> 24;
-	EPEP_READER_GET_BLOCK(epep->reader, size - 4, string_table);
+	epep_read_block(epep, size - 4, string_table);
 	return 1;
 }
 
 int epep_get_section_contents(Epep *epep, EpepSectionHeader *sh, void *buf) {
 	size_t size_of_raw_data = sh->SizeOfRawData;
-	EPEP_READER_SEEK(epep->reader, sh->PointerToRawData);
-	EPEP_READER_GET_BLOCK(epep->reader, size_of_raw_data, buf);
+	epep_seek(epep, sh->PointerToRawData);
+	epep_read_block(epep, size_of_raw_data, buf);
 	return 1;
 }
 
@@ -507,8 +517,8 @@ int epep_get_import_directory_by_index(Epep *epep, EpepImportDirectory *import_d
 			return 0;
 		}
 	}
-	EPEP_READER_SEEK(epep->reader, epep->import_table_offset + index * sizeof(*import_directory));
-	EPEP_READER_GET_BLOCK(epep->reader, sizeof(*import_directory), import_directory);
+	epep_seek(epep, epep->import_table_offset + index * sizeof(*import_directory));
+	epep_read_block(epep, sizeof(*import_directory), import_directory);
 	return 1;
 }
 
@@ -518,8 +528,8 @@ int epep_get_import_directory_name_s(Epep *epep, EpepImportDirectory *import_dir
 	if (!epep_get_file_offset_by_rva(epep, &name_offset, name_rva)) {
 		return 0;
 	}
-	EPEP_READER_SEEK(epep->reader, name_offset);
-	EPEP_READER_GET_BLOCK(epep->reader, name_max, name);
+	epep_seek(epep, name_offset);
+	epep_read_block(epep, name_max, name);
 	return 1;
 }
 
@@ -530,8 +540,8 @@ int epep_get_import_directory_lookup_by_index(Epep *epep, EpepImportDirectory *i
 	}
 	size_t size_of_lookup = is_pe32(epep) ? 4 : 8;
 	size_t lookup_offset = first_lookup_offset + size_of_lookup * index;
-	EPEP_READER_SEEK(epep->reader, lookup_offset);
-	EPEP_READER_GET_BLOCK(epep->reader, size_of_lookup, lookup);
+	epep_seek(epep, lookup_offset);
+	epep_read_block(epep, size_of_lookup, lookup);
 	return 1;
 }
 
@@ -556,8 +566,8 @@ int epep_get_lookup_name_s(Epep *epep, size_t lookup, char *name, size_t name_ma
 	}
 	// skip 2 bytes (Name Table :: Hint)
 	name_offset += 2;
-	EPEP_READER_SEEK(epep->reader, name_offset);
-	EPEP_READER_GET_BLOCK(epep->reader, name_max, name);
+	epep_seek(epep, name_offset);
+	epep_read_block(epep, name_max, name);
 	return 1;
 }
 
@@ -586,8 +596,8 @@ int epep_read_export_directory(Epep *epep) {
 			return 0;
 		}
 	}
-	EPEP_READER_SEEK(epep->reader, epep->export_table_offset);
-	EPEP_READER_GET_BLOCK(epep->reader, sizeof(epep->export_directory), &epep->export_directory);
+	epep_seek(epep, epep->export_table_offset);
+	epep_read_block(epep, sizeof(epep->export_directory), &epep->export_directory);
 	return 1;
 }
 
@@ -596,8 +606,8 @@ int epep_get_dll_name_s(Epep *epep, char *name, size_t name_max) {
 	if (!epep_get_file_offset_by_rva(epep, &offset, epep->export_directory.NameRva)) {
 		return 0;
 	}
-	EPEP_READER_SEEK(epep->reader, offset);
-	EPEP_READER_GET_BLOCK(epep->reader, name_max, name);
+	epep_seek(epep, offset);
+	epep_read_block(epep, name_max, name);
 	return 1;
 }
 
@@ -607,7 +617,7 @@ int epep_get_export_name_pointer_by_index(Epep *epep, size_t *name_rva, size_t i
 	if (!epep_get_file_offset_by_rva(epep, &name_pointer_table_offset, name_pointer_table_rva)) {
 		return 0;
 	}
-	EPEP_READER_SEEK(epep->reader, name_pointer_table_offset + sizeof(uint32_t) * index);
+	epep_seek(epep, name_pointer_table_offset + sizeof(uint32_t) * index);
 	*name_rva = epep_read_u32(epep);	
 	return 1;
 }
@@ -617,7 +627,7 @@ int epep_get_export_name_s_by_index(Epep *epep, char *name, size_t name_max, siz
 	if (!epep_get_file_offset_by_rva(epep, &ordinal_table_offset, epep->export_directory.OrdinalTableRva)) {
 		return 0;
 	}
-	EPEP_READER_SEEK(epep->reader, ordinal_table_offset);
+	epep_seek(epep, ordinal_table_offset);
 	for (size_t i = 0; i < epep->export_directory.NumberOfNamePointers; i++) {
 		uint16_t ordinal = epep_read_u16(epep);
 		if (ordinal == index) { // SPEC_VIOL: Why should not epep->export_directory.OrdinalBase be substracted?
@@ -629,8 +639,8 @@ int epep_get_export_name_s_by_index(Epep *epep, char *name, size_t name_max, siz
 			if (!epep_get_file_offset_by_rva(epep, &name_offset, name_rva)) {
 				return 0;
 			}
-			EPEP_READER_SEEK(epep->reader, name_offset);
-			EPEP_READER_GET_BLOCK(epep->reader, name_max, name);
+			epep_seek(epep, name_offset);
+			epep_read_block(epep, name_max, name);
 			return 1;
 		}
 	}
@@ -644,8 +654,8 @@ int epep_get_export_address_by_index(Epep *epep, EpepExportAddress *export_addre
 		return 0;
 	}
 	EPEP_ASSERT(sizeof(EpepExportAddress) == sizeof(uint32_t));
-	EPEP_READER_SEEK(epep->reader, export_address_table_offset + sizeof(EpepExportAddress) * index);
-	EPEP_READER_GET_BLOCK(epep->reader, sizeof(*export_address), export_address);
+	epep_seek(epep, export_address_table_offset + sizeof(EpepExportAddress) * index);
+	epep_read_block(epep, sizeof(*export_address), export_address);
 	return 1;
 }
 
@@ -654,8 +664,8 @@ int epep_get_export_address_forwarder_s(Epep *epep, EpepExportAddress *export_ad
 	if (!epep_get_file_offset_by_rva(epep, &forwarder_offset, export_address->ForwarderRva)) {
 		return 0;
 	}
-	EPEP_READER_SEEK(epep->reader, forwarder_offset);
-	EPEP_READER_GET_BLOCK(epep->reader, forwarder_max, forwarder);
+	epep_seek(epep, forwarder_offset);
+	epep_read_block(epep, forwarder_max, forwarder);
 	return 1;
 }
 
