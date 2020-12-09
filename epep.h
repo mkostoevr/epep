@@ -17,7 +17,7 @@
 #endif
 
 //
-// Public declarations
+// Constants
 //
 
 typedef enum {
@@ -39,84 +39,9 @@ typedef enum {
 	EPEP_ERR_EXPORT_ADDRESS_TABLE_ENTRY_NAME_NOT_FOUND,
 } EpepError;
 
-typedef union {
-	uint32_t ExportRva;
-	uint32_t ForwarderRva;
-} EpepExportAddress;
-
-typedef struct {
-	uint32_t ImportLookupTableRva;
-	uint32_t TimeDateStamp;
-	uint32_t ForwarderChain;
-	uint32_t NameRva;
-	uint32_t ImportAddressTableRva;
-} EpepImportDirectory;
-
-typedef struct {
-	uint32_t VirtualAddress;
-	uint32_t Size;
-} EpepImageDataDirectory;
-
-typedef struct {
-	char Name[8];
-	uint32_t VirtualSize;
-	uint32_t VirtualAddress;
-	uint32_t SizeOfRawData;
-	uint32_t PointerToRawData;
-	uint32_t PointerToRelocations;
-	uint32_t PointerToLinenumbers;
-	uint16_t NumberOfRelocations;
-	uint16_t NumberOfLinenumbers;
-	uint32_t Characteristics;
-} EpepSectionHeader;
-
-typedef union {
-	struct {
-		union {
-			char ShortName[8];
-			struct {
-				uint32_t Zeroes;
-				uint32_t Offset;
-			};
-		};
-		uint32_t Value;
-		uint16_t SectionNumber;
-		uint16_t Type;
-		uint8_t StorageClass;
-		uint8_t NumberOfAuxSymbols;
-	} symbol;
-	struct {
-		uint32_t TagIndex;
-		uint32_t TotalSize;
-		uint32_t PointerToLinenumber;
-		uint32_t PointerToNextFunction;
-		uint16_t Unused;
-	} auxFunctionDefinition;
-	struct {
-		uint8_t Unused0[4];
-		uint16_t Linenumber;
-		uint8_t Unused1[6];
-		uint32_t PointerToNextFunction;
-		uint8_t Unused2[2];
-	} auxBfOrEfSymbol;
-	struct {
-		uint32_t TagIndex;
-		uint32_t Characteristics;
-		uint8_t Unused[10];
-	} auxWeakExternal;
-	struct {
-		char FileName[18];
-	} auxFile;
-	struct {
-		uint32_t Length;
-		uint16_t NumberOfRelocations;
-		uint16_t NumberOfLinenumbers;
-		uint32_t CheckSum;
-		uint16_t Number;
-		uint8_t  Selection;
-		uint8_t Unused[3];
-	} auxSectionDefinition;
-} EpepCoffSymbol;
+//
+// Generic
+//
 
 typedef struct {
 	EPEP_READER reader;
@@ -186,21 +111,101 @@ typedef struct {
 	} export_directory;
 } Epep;
 
-//
-// Public functions
-//
-
 /// Constructor of the general information container
 int epep_init(Epep *epep, EPEP_READER reader);
+
+/// Gives file offset corresponding to RVA is any, returns 0 othervice
+int epep_get_file_offset_by_rva(Epep *epep, size_t *offset, size_t addr);
+
+//
+// Data Directories
+//
+
+typedef struct {
+	uint32_t VirtualAddress;
+	uint32_t Size;
+} EpepImageDataDirectory;
 
 /// Gives Data Directiry by its index
 int epep_get_data_directory_by_index(Epep *epep, EpepImageDataDirectory *idd, size_t index);
 
+//
+// Sections
+//
+
+typedef struct {
+	char Name[8];
+	uint32_t VirtualSize;
+	uint32_t VirtualAddress;
+	uint32_t SizeOfRawData;
+	uint32_t PointerToRawData;
+	uint32_t PointerToRelocations;
+	uint32_t PointerToLinenumbers;
+	uint16_t NumberOfRelocations;
+	uint16_t NumberOfLinenumbers;
+	uint32_t Characteristics;
+} EpepSectionHeader;
+
 /// Gives Section Header by its index
 int epep_get_section_header_by_index(Epep *epep, EpepSectionHeader *sh, size_t index);
 
-/// Gives COFF Symbol by its index
-int epep_get_symbol_by_index(Epep *epep, EpepCoffSymbol *sym, size_t index);
+/// Gives section header by RVA
+int epep_get_section_header_by_rva(Epep *epep, EpepSectionHeader *sh, size_t addr);
+
+/// Gives section contents by Section Header
+int epep_get_section_contents(Epep *epep, EpepSectionHeader *sh, void *buf);
+
+//
+// COFF Symbols (object file symbols)
+//
+
+typedef union {
+	struct {
+		union {
+			char ShortName[8];
+			struct {
+				uint32_t Zeroes;
+				uint32_t Offset;
+			};
+		};
+		uint32_t Value;
+		uint16_t SectionNumber;
+		uint16_t Type;
+		uint8_t StorageClass;
+		uint8_t NumberOfAuxSymbols;
+	} symbol;
+	struct {
+		uint32_t TagIndex;
+		uint32_t TotalSize;
+		uint32_t PointerToLinenumber;
+		uint32_t PointerToNextFunction;
+		uint16_t Unused;
+	} auxFunctionDefinition;
+	struct {
+		uint8_t Unused0[4];
+		uint16_t Linenumber;
+		uint8_t Unused1[6];
+		uint32_t PointerToNextFunction;
+		uint8_t Unused2[2];
+	} auxBfOrEfSymbol;
+	struct {
+		uint32_t TagIndex;
+		uint32_t Characteristics;
+		uint8_t Unused[10];
+	} auxWeakExternal;
+	struct {
+		char FileName[18];
+	} auxFile;
+	struct {
+		uint32_t Length;
+		uint16_t NumberOfRelocations;
+		uint16_t NumberOfLinenumbers;
+		uint32_t CheckSum;
+		uint16_t Number;
+		uint8_t  Selection;
+		uint8_t Unused[3];
+	} auxSectionDefinition;
+} EpepCoffSymbol;
 
 /// Gives COFF string table size
 int epep_get_string_table_size(Epep *epep, size_t *size);
@@ -208,14 +213,20 @@ int epep_get_string_table_size(Epep *epep, size_t *size);
 /// Gives COFF string table
 int epep_get_string_table(Epep *epep, char *string_table);
 
-/// Gives section contents by Section Header
-int epep_get_section_contents(Epep *epep, EpepSectionHeader *sh, void *buf);
+/// Gives COFF Symbol by its index
+int epep_get_symbol_by_index(Epep *epep, EpepCoffSymbol *sym, size_t index);
 
-/// Gives section header by RVA
-int epep_get_section_header_by_rva(Epep *epep, EpepSectionHeader *sh, size_t addr);
+//
+// Imports
+//
 
-/// Gives file offset corresponding to RVA is any, returns 0 othervice
-int epep_get_file_offset_by_rva(Epep *epep, size_t *offset, size_t addr);
+typedef struct {
+	uint32_t ImportLookupTableRva;
+	uint32_t TimeDateStamp;
+	uint32_t ForwarderChain;
+	uint32_t NameRva;
+	uint32_t ImportAddressTableRva;
+} EpepImportDirectory;
 
 /// Returns non-zero if import table exists in the file
 int epep_has_import_table(Epep *epep);
@@ -229,11 +240,20 @@ int epep_get_import_directory_by_index(Epep *epep, EpepImportDirectory *import_d
 /// Gives name of Import Directory (library)
 int epep_get_import_directory_name_s(Epep *epep, EpepImportDirectory *import_directory, char *name, size_t name_max);
 
-/// Gives Import Lookup by import directory and index
+/// Gives Import Lookup (imported symbol) by import directory and index
 int epep_get_import_directory_lookup_by_index(Epep *epep, EpepImportDirectory *import_directory, size_t *lookup, size_t index);
 
 /// Gives name of Import Directory Lookup (imported symbol) or nothing if imported by ordinal
 int epep_get_lookup_name_s(Epep *epep, size_t lookup, char *name, size_t name_max);
+
+//
+// Exports
+//
+
+typedef union {
+	uint32_t ExportRva;
+	uint32_t ForwarderRva;
+} EpepExportAddress;
 
 /// Returns non-zero if export table exists in the file
 int epep_has_export_table(Epep *epep);
@@ -242,31 +262,38 @@ int epep_has_export_table(Epep *epep);
 int epep_read_export_table_offset(Epep *epep);
 
 /// Palces export table into epep structrue
+//! Needs to be called before next export functions
 int epep_read_export_directory(Epep *epep);
 
 /// Gives name of the DLL
+//! epep_read_export_directory needs to be called before
 int epep_get_dll_name_s(Epep *epep, char *name, size_t name_max);
 
 /// Gives entry from Export Name Pointer Table by its index
+//! epep_read_export_directory needs to be called before
 int epep_get_export_name_pointer_by_index(Epep *epep, size_t *name_rva, size_t index);
 
 /// Gives export name by its index in Export Address Table (receives name buffer length)
+//! epep_read_export_directory needs to be called before
 int epep_get_export_name_s_by_index(Epep *epep, char *name, size_t name_max, size_t index);
 
 /// Gives export address by its index in Export Address Table
+//! epep_read_export_directory needs to be called before
 int epep_get_export_address_by_index(Epep *epep, EpepExportAddress *export_address, size_t index);
 
 /// Gives forwarder string of Export Address
+//! epep_read_export_directory needs to be called before
 int epep_get_export_address_forwarder_s(Epep *epep, EpepExportAddress *export_address, char *forwarder, size_t forwarder_max);
 
 /// Returns non-zero if the export address specifies forwarder string
+//! epep_read_export_directory needs to be called before
 int epep_export_address_is_forwarder(Epep *epep, EpepExportAddress *export_address);
 
-//
-// The code
-//
-
 #ifdef EPEP_INST
+
+//
+// Private functions
+//
 
 static int epep_seek(Epep *epep, size_t offset) {
 	EPEP_READER_SEEK(epep->reader, offset);
@@ -315,6 +342,10 @@ static uint64_t epep_read_u64(Epep *epep) {
 static uint64_t epep_read_ptr(Epep *epep) {
 	return is_pe32(epep) ? epep_read_u32(epep) : epep_read_u64(epep);
 }
+
+//
+// Generic
+//
 
 int epep_init(Epep *epep, EPEP_READER reader) {
 	*epep = (Epep){ 0 };
@@ -390,6 +421,24 @@ int epep_init(Epep *epep, EPEP_READER reader) {
 	return 1;
 }
 
+int epep_get_file_offset_by_rva(Epep *epep, size_t *offset, size_t addr) {
+	EpepSectionHeader sh = { 0 };
+	if (!epep_get_section_header_by_rva(epep, &sh, addr)) {
+		return 0;
+	}
+	size_t diff = addr - sh.VirtualAddress;
+	if (diff >= sh.SizeOfRawData) {
+		epep->error_code = EPEP_ERR_ADDRESS_IS_OUT_OF_SECTION_RAW_DATA;
+		return 0;
+	}
+	*offset = sh.PointerToRawData + diff;
+	return 1;
+}
+
+//
+// Data Directories
+//
+
 int epep_get_data_directory_by_index(Epep *epep, EpepImageDataDirectory *idd, size_t index) {
 	if (index >= epep->optionalHeader.NumberOfRvaAndSizes) {
 		epep->error_code = EPEP_ERR_DATA_DIRECTORY_INDEX_IS_INVALID;
@@ -400,6 +449,10 @@ int epep_get_data_directory_by_index(Epep *epep, EpepImageDataDirectory *idd, si
 	idd->Size = epep_read_u32(epep);
 	return 1;
 }
+
+//
+// Sections
+//
 
 int epep_get_section_header_by_index(Epep *epep, EpepSectionHeader *sh, size_t index) {
 	if (index >= epep->coffFileHeader.NumberOfSections) {
@@ -422,21 +475,29 @@ int epep_get_section_header_by_index(Epep *epep, EpepSectionHeader *sh, size_t i
 	return 1;
 }
 
-int epep_get_symbol_by_index(Epep *epep, EpepCoffSymbol *sym, size_t index) {
-	if (epep->kind != EPEP_OBJECT) {
-		epep->error_code = EPEP_ERR_NOT_AN_OBJECT;
-		return 0;
+int epep_get_section_header_by_rva(Epep *epep, EpepSectionHeader *sh, size_t addr) {
+	EpepSectionHeader sh0 = { 0 };
+	for (size_t i = 0; i < epep->coffFileHeader.NumberOfSections; i++) {
+		epep_get_section_header_by_index(epep, &sh0, i);
+		if (addr >= sh0.VirtualAddress && addr < (sh0.VirtualAddress + sh0.VirtualSize)) {
+			*sh = sh0;
+			return 1;
+		}
 	}
-	if (index >= epep->coffFileHeader.NumberOfSymbols) {
-		epep->error_code = EPEP_ERR_SYMBOL_INDEX_IS_INVALID;
-		return 0;
-	}
-	epep_seek(epep, epep->coffFileHeader.PointerToSymbolTable + 18 * index);
-	for (size_t i = 0; i < 18; i++) {
-		sym->auxFile.FileName[i] = epep_read_u8(epep);
-	}
+	epep->error_code = EPEP_ERR_ADDRESS_IS_OUT_OF_ANY_SECTION;
+	return 0;
+}
+
+int epep_get_section_contents(Epep *epep, EpepSectionHeader *sh, void *buf) {
+	size_t size_of_raw_data = sh->SizeOfRawData;
+	epep_seek(epep, sh->PointerToRawData);
+	epep_read_block(epep, size_of_raw_data, buf);
 	return 1;
 }
+
+//
+// COFF Symbols
+//
 
 int epep_get_string_table_size(Epep *epep, size_t *size) {
 	epep_seek(epep, epep->coffFileHeader.PointerToSymbolTable + 18 * epep->coffFileHeader.NumberOfSymbols);
@@ -458,39 +519,25 @@ int epep_get_string_table(Epep *epep, char *string_table) {
 	return 1;
 }
 
-int epep_get_section_contents(Epep *epep, EpepSectionHeader *sh, void *buf) {
-	size_t size_of_raw_data = sh->SizeOfRawData;
-	epep_seek(epep, sh->PointerToRawData);
-	epep_read_block(epep, size_of_raw_data, buf);
+int epep_get_symbol_by_index(Epep *epep, EpepCoffSymbol *sym, size_t index) {
+	if (epep->kind != EPEP_OBJECT) {
+		epep->error_code = EPEP_ERR_NOT_AN_OBJECT;
+		return 0;
+	}
+	if (index >= epep->coffFileHeader.NumberOfSymbols) {
+		epep->error_code = EPEP_ERR_SYMBOL_INDEX_IS_INVALID;
+		return 0;
+	}
+	epep_seek(epep, epep->coffFileHeader.PointerToSymbolTable + 18 * index);
+	for (size_t i = 0; i < 18; i++) {
+		sym->auxFile.FileName[i] = epep_read_u8(epep);
+	}
 	return 1;
 }
 
-int epep_get_section_header_by_rva(Epep *epep, EpepSectionHeader *sh, size_t addr) {
-	EpepSectionHeader sh0 = { 0 };
-	for (size_t i = 0; i < epep->coffFileHeader.NumberOfSections; i++) {
-		epep_get_section_header_by_index(epep, &sh0, i);
-		if (addr >= sh0.VirtualAddress && addr < (sh0.VirtualAddress + sh0.VirtualSize)) {
-			*sh = sh0;
-			return 1;
-		}
-	}
-	epep->error_code = EPEP_ERR_ADDRESS_IS_OUT_OF_ANY_SECTION;
-	return 0;
-}
-
-int epep_get_file_offset_by_rva(Epep *epep, size_t *offset, size_t addr) {
-	EpepSectionHeader sh = { 0 };
-	if (!epep_get_section_header_by_rva(epep, &sh, addr)) {
-		return 0;
-	}
-	size_t diff = addr - sh.VirtualAddress;
-	if (diff >= sh.SizeOfRawData) {
-		epep->error_code = EPEP_ERR_ADDRESS_IS_OUT_OF_SECTION_RAW_DATA;
-		return 0;
-	}
-	*offset = sh.PointerToRawData + diff;
-	return 1;
-}
+//
+// Imports
+//
 
 int epep_has_import_table(Epep *epep) {
 	EpepImageDataDirectory idd = { 0 };
@@ -570,6 +617,10 @@ int epep_get_lookup_name_s(Epep *epep, size_t lookup, char *name, size_t name_ma
 	epep_read_block(epep, name_max, name);
 	return 1;
 }
+
+//
+// Exports
+//
 
 int epep_has_export_table(Epep *epep) {
 	EpepImageDataDirectory idd = { 0 };
