@@ -30,6 +30,7 @@ typedef enum {
 	EPEP_ERR_OUTPUT_CAPACITY_IS_ZERO,
 	EPEP_ERR_OUTPUT_IS_NULL,
 	EPEP_ERR_ADDRESS_IS_OUT_OF_ANY_SECTION,
+	EPEP_ERR_EXPORT_ADDRESS_TABLE_ENTRY_NAME_NOT_FOUND,
 } EpepError;
 
 typedef struct {
@@ -239,6 +240,12 @@ int epep_read_export_directory(Epep *epep);
 
 /// Gives name of the DLL
 int epep_get_dll_name_s(Epep *epep, char *name, size_t name_max);
+
+/// Gives entry from Export Name Pointer Table
+int epep_get_export_name_pointer_by_index(Epep *epep, size_t *name_rva, size_t index);
+
+/// Gives export name by index (receives name buffer length)
+int epep_get_export_name_s_by_index(Epep *epep, char *name, size_t name_max, size_t index);
 
 //
 // The code
@@ -577,6 +584,43 @@ int epep_get_dll_name_s(Epep *epep, char *name, size_t name_max) {
 	EPEP_READER_SEEK(epep->reader, offset);
 	EPEP_READER_GET_BLOCK(epep->reader, name_max, name);
 	return 1;
+}
+
+int epep_get_export_name_pointer_by_index(Epep *epep, size_t *name_rva, size_t index) {
+	size_t name_pointer_table_rva = epep->export_directory.NamePointerRva;
+	size_t name_pointer_table_offset = 0;
+	if (!epep_get_file_offset_by_rva(epep, &name_pointer_table_offset, name_pointer_table_rva)) {
+		return 0;
+	}
+	EPEP_READER_SEEK(epep->reader, name_pointer_table_offset + sizeof(uint32_t) * index);
+	*name_rva = epep_read_u32(epep);	
+	return 1;
+}
+
+int epep_get_export_name_s_by_index(Epep *epep, char *name, size_t name_max, size_t index) {
+	size_t ordinal_table_offset = 0;
+	if (!epep_get_file_offset_by_rva(epep, &ordinal_table_offset, epep->export_directory.OrdinalTableRva)) {
+		return 0;
+	}
+	EPEP_READER_SEEK(epep->reader, ordinal_table_offset);
+	for (size_t i = 0; i < epep->export_directory.NumberOfNamePointers; i++) {
+		uint16_t ordinal = epep_read_u16(epep);
+		if (ordinal == index) { // SPEC_VIOL: Why should not epep->export_directory.OrdinalBase be substracted?
+			size_t name_rva = 0;
+			if (!epep_get_export_name_pointer_by_index(epep, &name_rva, i)) {
+				return 0;
+			}
+			size_t name_offset = 0;
+			if (!epep_get_file_offset_by_rva(epep, &name_offset, name_rva)) {
+				return 0;
+			}
+			EPEP_READER_SEEK(epep->reader, name_offset);
+			EPEP_READER_GET_BLOCK(epep->reader, name_max, name);
+			return 1;
+		}
+	}
+	epep->error_code = EPEP_ERR_EXPORT_ADDRESS_TABLE_ENTRY_NAME_NOT_FOUND;
+	return 0;
 }
 
 #endif // EPEP_INST

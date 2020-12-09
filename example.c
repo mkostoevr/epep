@@ -91,7 +91,9 @@ int main(int argc, char **argv) {
 			printf("    Type:           %s\n", dds[i % 16]);
 			printf("    VirtualAddress: %016x\n", idd.VirtualAddress);
 			printf("    Size:           %016x\n", idd.Size);
-			if (idd.VirtualAddress) {
+			// Certificate table (4'th) data directory's VirtualAddress isn't a real RVA, it's a file offset
+			// so it's actually outside of any section, so let's skip section name printing for it
+			if (idd.VirtualAddress && i != 4) {
 				EpepSectionHeader sh = { 0 };
 				if (!epep_get_section_header_by_rva(&epep, &sh, idd.VirtualAddress)) {
 					return ERROR(epep);
@@ -222,8 +224,14 @@ int main(int argc, char **argv) {
 		printf("  ExportAddressTableRva: %08x\n", epep.export_directory.ExportAddressTableRva);
 		printf("  NamePointerRva:        %08x\n", epep.export_directory.NamePointerRva);
 		printf("  OrdinalTableRva:       %08x\n", epep.export_directory.OrdinalTableRva);
+		printf("  Exports:\n");
 		for (size_t i = 0; i < epep.export_directory.AddressTableEntries; i++) {
-
+			printf("    Export #%u:\n", i);
+			size_t name_max = 1024;
+			char name[name_max];
+			if (epep_get_export_name_s_by_index(&epep, name, name_max, i)) {
+				printf("      Name:              %s\n", name);
+			}
 		}
 	} else if (epep.error_code) {
 		return ERROR(epep);
