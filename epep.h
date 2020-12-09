@@ -1,5 +1,11 @@
 // Dependencies:
+// <assert.h> or any another source of assert()
 // <stdint.h> or any another source of uint64_t, uint32_t, uint16_t, uint8_t, size_t
+
+#ifndef EPEP_ASSERT
+#include <assert.h>
+#define EPEP_ASSERT(x) assert(x)
+#endif
 
 #ifndef EPEP_READER
 #include <stdio.h>
@@ -33,7 +39,7 @@ typedef enum {
 	EPEP_ERR_EXPORT_ADDRESS_TABLE_ENTRY_NAME_NOT_FOUND,
 } EpepError;
 
-typedef struct {
+typedef union {
 	uint32_t ExportRva;
 	uint32_t ForwarderRva;
 } EpepExportAddress;
@@ -241,11 +247,20 @@ int epep_read_export_directory(Epep *epep);
 /// Gives name of the DLL
 int epep_get_dll_name_s(Epep *epep, char *name, size_t name_max);
 
-/// Gives entry from Export Name Pointer Table
+/// Gives entry from Export Name Pointer Table by its index
 int epep_get_export_name_pointer_by_index(Epep *epep, size_t *name_rva, size_t index);
 
-/// Gives export name by index (receives name buffer length)
+/// Gives export name by its index in Export Address Table (receives name buffer length)
 int epep_get_export_name_s_by_index(Epep *epep, char *name, size_t name_max, size_t index);
+
+/// Gives export address by its index in Export Address Table
+int epep_get_export_address_by_index(Epep *epep, EpepExportAddress *export_address, size_t index);
+
+/// Gives forwarder string of Export Address
+int epep_get_export_address_forwarder_s(Epep *epep, EpepExportAddress *export_address, char *forwarder, size_t forwarder_max);
+
+/// Returns non-zero if the export address specifies forwarder string
+int epep_export_address_is_forwarder(Epep *epep, EpepExportAddress *export_address);
 
 //
 // The code
@@ -620,6 +635,38 @@ int epep_get_export_name_s_by_index(Epep *epep, char *name, size_t name_max, siz
 		}
 	}
 	epep->error_code = EPEP_ERR_EXPORT_ADDRESS_TABLE_ENTRY_NAME_NOT_FOUND;
+	return 0;
+}
+
+int epep_get_export_address_by_index(Epep *epep, EpepExportAddress *export_address, size_t index) {
+	size_t export_address_table_offset = 0;
+	if (!epep_get_file_offset_by_rva(epep, &export_address_table_offset, epep->export_directory.ExportAddressTableRva)) {
+		return 0;
+	}
+	EPEP_ASSERT(sizeof(EpepExportAddress) == sizeof(uint32_t));
+	EPEP_READER_SEEK(epep->reader, export_address_table_offset + sizeof(EpepExportAddress) * index);
+	EPEP_READER_GET_BLOCK(epep->reader, sizeof(*export_address), export_address);
+	return 1;
+}
+
+int epep_get_export_address_forwarder_s(Epep *epep, EpepExportAddress *export_address, char *forwarder, size_t forwarder_max) {
+	size_t forwarder_offset = 0;
+	if (!epep_get_file_offset_by_rva(epep, &forwarder_offset, export_address->ForwarderRva)) {
+		return 0;
+	}
+	EPEP_READER_SEEK(epep->reader, forwarder_offset);
+	EPEP_READER_GET_BLOCK(epep->reader, forwarder_max, forwarder);
+	return 1;
+}
+
+int epep_export_address_is_forwarder(Epep *epep, EpepExportAddress *export_address) {
+	EpepImageDataDirectory edd = { 0 };
+	if (!epep_get_data_directory_by_index(epep, &edd, 0)) {
+		return 0;
+	}
+	if (export_address->ForwarderRva >= edd.VirtualAddress && export_address->ForwarderRva < edd.VirtualAddress + edd.Size) {
+		return 1;
+	}
 	return 0;
 }
 

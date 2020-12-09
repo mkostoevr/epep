@@ -229,8 +229,23 @@ int main(int argc, char **argv) {
 			printf("    Export #%u:\n", i);
 			size_t name_max = 1024;
 			char name[name_max];
+			printf("      Ordinal:      %u\n", epep.export_directory.OrdinalBase + i);
 			if (epep_get_export_name_s_by_index(&epep, name, name_max, i)) {
-				printf("      Name:              %s\n", name);
+				printf("      Name:         %s\n", name);
+			}
+			EpepExportAddress ea = { 0 };
+			if (!epep_get_export_address_by_index(&epep, &ea, i)) {
+				return ERROR(epep);
+			}
+			if (epep_export_address_is_forwarder(&epep, &ea)) {
+				size_t forwarder_max = 1024;
+				char forwarder[forwarder_max];
+				if (!epep_get_export_address_forwarder_s(&epep, &ea, forwarder, forwarder_max)) {
+					return ERROR(epep);
+				}
+				printf("      ForwarderRva: %08x (%s)\n", ea.ForwarderRva, forwarder);
+			} else {
+				printf("      ExportRva:    %08x\n", ea.ExportRva);
 			}
 		}
 	} else if (epep.error_code) {
