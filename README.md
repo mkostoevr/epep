@@ -6,6 +6,7 @@
 - COFF Symbols
 - Imports
 - Exports
+- Base relocations (DLL)
 
 ## How to use
 
