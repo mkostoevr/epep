@@ -285,7 +285,6 @@ int main(int argc, char **argv) {
 				}
 				printf("        Type:   %01x (%s)\n", br.Type, strs[br.Type % (sizeof(strs) / sizeof(*strs))]);
 				printf("        Offset: %03x (%u)\n", br.Offset, br.Offset);
-				printf("        Full:   %04x\n", br.u16);
 			}
 			if (!epep_get_next_base_relocation_block(&epep, &brb)) {
 				return ERROR(epep);
