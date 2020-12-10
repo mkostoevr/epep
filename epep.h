@@ -10,10 +10,10 @@
 #ifndef EPEP_READER
 #include <stdio.h>
 #define EPEP_READER FILE *
-#define EPEP_READER_GET(reader) getc(reader)
-#define EPEP_READER_SEEK(reader, offset) fseek(reader, offset, SEEK_SET)
-#define EPEP_READER_TELL(reader) ftell(reader)
-#define EPEP_READER_GET_BLOCK(reader, size, buf) fread(buf, 1, size, reader);
+#define EPEP_READER_GET(preader) getc(*preader)
+#define EPEP_READER_SEEK(preader, offset) fseek(*preader, offset, SEEK_SET)
+#define EPEP_READER_TELL(preader) ftell(*preader)
+#define EPEP_READER_GET_BLOCK(preader, size, buf) fread(buf, 1, size, *preader);
 #endif
 
 //
@@ -334,12 +334,12 @@ int epep_get_base_relocation_block_base_relocation_by_index(Epep *epep, EpepBase
 //
 
 static int epep_seek(Epep *epep, size_t offset) {
-	EPEP_READER_SEEK(epep->reader, offset);
+	EPEP_READER_SEEK(&epep->reader, offset);
 	return 1;
 }
 
 static int epep_read_block(Epep *epep, size_t size, void *block) {
-	EPEP_READER_GET_BLOCK(epep->reader, size, block);
+	EPEP_READER_GET_BLOCK(&epep->reader, size, block);
 	return 1;
 }
 
@@ -352,7 +352,7 @@ static int is_pe32p(Epep *epep) {
 }
 
 static uint8_t epep_read_u8(Epep *epep) {
-	return EPEP_READER_GET(epep->reader);
+	return EPEP_READER_GET(&epep->reader);
 }
 
 static uint16_t epep_read_u16(Epep *epep) {
@@ -450,9 +450,9 @@ int epep_init(Epep *epep, EPEP_READER reader) {
 		epep->optionalHeader.SizeOfHeapCommit = epep_read_ptr(epep);
 		epep->optionalHeader.LoaderFlags = epep_read_u32(epep);
 		epep->optionalHeader.NumberOfRvaAndSizes = epep_read_u32(epep);
-		epep->first_data_directory_offset = EPEP_READER_TELL(epep->reader);
+		epep->first_data_directory_offset = EPEP_READER_TELL(&epep->reader);
 	}
-	epep->first_section_header_offset = EPEP_READER_TELL(epep->reader);
+	epep->first_section_header_offset = EPEP_READER_TELL(&epep->reader);
 	if (epep->coffFileHeader.SizeOfOptionalHeader != 0) {
 		epep->first_section_header_offset += epep->optionalHeader.NumberOfRvaAndSizes * sizeof(EpepImageDataDirectory);
 	}
