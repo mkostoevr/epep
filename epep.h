@@ -578,6 +578,9 @@ int epep_get_symbol_by_index(Epep *epep, EpepCoffSymbol *sym, size_t index) {
 //
 
 int epep_has_import_table(Epep *epep) {
+	if (epep->kind != EPEP_IMAGE) {
+		return 0;
+	}
 	EpepImageDataDirectory idd = { 0 };
 	if (!epep_get_data_directory_by_index(epep, &idd, 1)) {
 		return 0;

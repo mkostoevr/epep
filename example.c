@@ -162,7 +162,7 @@ int main(int argc, char **argv) {
 		}
 		printf("\n");
 	}
-	if (epep.kind == EPEP_IMAGE && epep_has_import_table(&epep)) {
+	if (epep_has_import_table(&epep)) {
 		printf("Import Directory Table:\n");
 		for (size_t i = 0; i < 1024; i++) {
 			EpepImportDirectory import_directory = { 0 };
