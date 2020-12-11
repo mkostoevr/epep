@@ -200,10 +200,8 @@ int main(int argc, char **argv) {
 			}
 		}
 		printf("\n");
-	} else if (epep.error_code) {
-		return ERROR(epep);
 	}
-	if (epep.kind == EPEP_IMAGE && epep_has_export_table(&epep)) {
+	if (epep_has_export_table(&epep)) {
 		if (!epep_read_export_directory(&epep)) {
 			return ERROR(epep);
 		}
@@ -250,8 +248,6 @@ int main(int argc, char **argv) {
 			}
 		}
 		printf("\n");
-	} else if (epep.error_code) {
-		return ERROR(epep);
 	}
 	if (epep_has_base_relocation_table(&epep)) {
 		printf("Base Relocations:\n");
@@ -291,8 +287,6 @@ int main(int argc, char **argv) {
 			}
 		}
 		printf("\n");
-	} else if (epep.error_code) {
-		return ERROR(epep);
 	}
 	return 0;
 }

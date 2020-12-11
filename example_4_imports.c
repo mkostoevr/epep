@@ -60,8 +60,6 @@ int main(int argc, char **argv) {
 			}
 		}
 		printf("\n");
-	} else if (epep.error_code) {
-		return ERROR(epep);
 	}
 	return 0;
 }

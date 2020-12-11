@@ -664,6 +664,9 @@ int epep_get_lookup_name_s(Epep *epep, size_t lookup, char *name, size_t name_ma
 //
 
 int epep_has_export_table(Epep *epep) {
+	if (epep->kind != EPEP_IMAGE) {
+		return 0;
+	}
 	EpepImageDataDirectory idd = { 0 };
 	if (!epep_get_data_directory_by_index(epep, &idd, 0)) {
 		return 0;
