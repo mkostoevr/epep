@@ -22,45 +22,38 @@ int main(int argc, char **argv) {
 		printf("Not PE");
 		return 1;
 	}
-	if (epep.coffFileHeader.SizeOfOptionalHeader != 0) {
-		printf("Data directories:\n");
-		for (size_t i = 0; i < epep.optionalHeader.NumberOfRvaAndSizes; i++) {
-			char *dds[] = {
-				"Export Table",
-				"Import Table",
-				"Resource Table",
-				"Exception Table",
-				"Certificate Table",
-				"Base Relocation Table",
-				"Debug",
-				"Architecture",
-				"Global Ptr",
-				"TLS Table",
-				"Load Config Table",
-				"Bound Import",
-				"Import Address Table",
-				"Delay Import Descriptor",
-				"CLR Runtime Header",
-				"Reserved, must be zero"
-			};
-			EpepImageDataDirectory idd = { 0 };
-			if (!epep_get_data_directory_by_index(&epep, &idd, i)) {
-				return ERROR(epep);
-			}
-			printf("  Data directory #%u:\n", i);
-			printf("    Type:           %s\n", dds[i % 16]);
-			printf("    VirtualAddress: %016x\n", idd.VirtualAddress);
-			printf("    Size:           %016x\n", idd.Size);
-			// Certificate table (4'th) data directory's VirtualAddress isn't a real RVA, it's a file offset
-			// so it's actually outside of any section, so let's skip section name printing for it
-			if (idd.VirtualAddress && i != 4) {
-				EpepSectionHeader sh = { 0 };
-				if (!epep_get_section_header_by_rva(&epep, &sh, idd.VirtualAddress)) {
-					return ERROR(epep);
-				}
-				printf("    Section:        %s\n", sh.Name);
-			}
+	
+	// Get string table useful to show long names of sections
+	size_t string_table_size = 1;
+	if (epep.kind == EPEP_OBJECT && !epep_get_string_table_size(&epep, &string_table_size)) {
+		return ERROR(epep);
+	}
+	char *string_table = malloc(string_table_size);
+	if (epep.kind == EPEP_OBJECT && !epep_get_string_table(&epep, string_table)) {
+		return ERROR(epep);
+	}
+
+	printf("Section Table:\n");
+	for (size_t i = 0; i < epep.coffFileHeader.NumberOfSections; i++) {
+		EpepSectionHeader sh = { 0 };
+		if (!epep_get_section_header_by_index(&epep, &sh, i)) {
+			return ERROR(epep);
 		}
+		printf("  Section #%u\n", i);
+		if (epep.kind == EPEP_OBJECT && sh.Name[0] == '/') {
+			printf("    Name:                 %s\n", &string_table[atoi(sh.Name + 1)]);
+		} else {
+			printf("    Name:                 %.*s\n", 8, sh.Name);
+		}
+		printf("    VirtualSize:          %08x\n", sh.VirtualSize);
+		printf("    VirtualAddress:       %08x\n", sh.VirtualAddress);
+		printf("    SizeOfRawData:        %08x\n", sh.SizeOfRawData);
+		printf("    PointerToRawData:     %08x\n", sh.PointerToRawData);
+		printf("    PointerToRelocations: %08x\n", sh.PointerToRelocations);
+		printf("    PointerToLinenumbers: %08x\n", sh.PointerToLinenumbers);
+		printf("    NumberOfRelocations:  %08x\n", sh.NumberOfRelocations);
+		printf("    NumberOfLinenumbers:  %08x\n", sh.NumberOfLinenumbers);
+		printf("    Characteristics:      %08x\n", sh.Characteristics);
 	}
 	return 0;
 }
