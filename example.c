@@ -290,27 +290,50 @@ int main(int argc, char **argv) {
 	}
 	if (epep.kind == EPEP_OBJECT) {
 		for (size_t i = 0; i < epep.coffFileHeader.NumberOfSections; i++) {
-		EpepSectionHeader sh = { 0 };
-		if (!epep_get_section_header_by_index(&epep, &sh, i)) {
-			return ERROR(epep);
-		}
-		printf("  Relocations for section #%u", i);
-		if (epep.kind == EPEP_OBJECT && sh.Name[0] == '/') {
-			printf(" (%s)\n", &string_table[atoi(sh.Name + 1)]);
-		} else {
-			printf(" (%.*s)\n", 8, sh.Name);
-		}
-		for (size_t i = 0; i < sh.NumberOfRelocations; i++) {
-			EpepCoffRelocation rel = { 0 };
-			if (!epep_get_section_relocation_by_index(&epep, &sh, &rel, i)) {
+			EpepSectionHeader sh = { 0 };
+			if (!epep_get_section_header_by_index(&epep, &sh, i)) {
 				return ERROR(epep);
 			}
-			printf("    COFF Relocation #%u\n", i);
-			printf("      VirtualAddress: %08x\n", rel.VirtualAddress);
-			printf("      SymbolTableIndex: %08x\n", rel.SymbolTableIndex);
-			printf("      Type: %04x\n", rel.Type);
+			printf("  Relocations for section #%u", i);
+			if (epep.kind == EPEP_OBJECT && sh.Name[0] == '/') {
+				printf(" (%s)\n", &string_table[atoi(sh.Name + 1)]);
+			} else {
+				printf(" (%.*s)\n", 8, sh.Name);
+			}
+			for (size_t i = 0; i < sh.NumberOfRelocations; i++) {
+				EpepCoffRelocation rel = { 0 };
+				if (!epep_get_section_relocation_by_index(&epep, &sh, &rel, i)) {
+					return ERROR(epep);
+				}
+				printf("    COFF Relocation #%u\n", i);
+				printf("      VirtualAddress: %08x\n", rel.VirtualAddress);
+				printf("      SymbolTableIndex: %08x\n", rel.SymbolTableIndex);
+				printf("      Type: %04x\n", rel.Type);
+			}
 		}
 	}
+	if (epep.kind == EPEP_OBJECT) {
+		for (size_t i = 0; i < epep.coffFileHeader.NumberOfSections; i++) {
+			EpepSectionHeader sh = { 0 };
+			if (!epep_get_section_header_by_index(&epep, &sh, i)) {
+				return ERROR(epep);
+			}
+			printf("  Linenumbers for section #%u", i);
+			if (epep.kind == EPEP_OBJECT && sh.Name[0] == '/') {
+				printf(" (%s)\n", &string_table[atoi(sh.Name + 1)]);
+			} else {
+				printf(" (%.*s)\n", 8, sh.Name);
+			}
+			for (size_t i = 0; i < sh.NumberOfLinenumbers; i++) {
+				EpepCoffLinenumber ln = { 0 };
+				if (!epep_get_section_line_number_by_index(&epep, &sh, &ln, i)) {
+					return ERROR(epep);
+				}
+				printf("    COFF Line Number #%u\n", i);
+				printf("      Type: %04x\n", ln.Type);
+				printf("      Linenumber: %08x\n", ln.Linenumber);
+			}
+		}
 	}
 	return 0;
 }

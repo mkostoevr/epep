@@ -339,6 +339,20 @@ typedef struct {
 
 int epep_get_section_relocation_by_index(Epep *epep, EpepSectionHeader *sh, EpepCoffRelocation *rel, size_t index);
 
+//
+// COFF Line Numbers
+//
+
+typedef struct {
+	union {
+		uint32_t SymbolTableIndex;
+		uint32_t VirtualAddress;
+	} Type;
+	uint16_t Linenumber;
+} EpepCoffLinenumber;
+
+int epep_get_section_line_number_by_index(Epep *epep, EpepSectionHeader *sh, EpepCoffLinenumber *ln, size_t index);
+
 #ifdef EPEP_INST
 
 //
@@ -867,6 +881,17 @@ int epep_get_section_relocation_by_index(Epep *epep, EpepSectionHeader *sh, Epep
 	size_t relocationsOffset = sh->PointerToRelocations;
 	epep_seek(epep, relocationsOffset + 10 * index);
 	epep_read_block(epep, 10, rel);
+	return 1;
+}
+
+//
+// COFF Line Numbers
+//
+
+int epep_get_section_line_number_by_index(Epep *epep, EpepSectionHeader *sh, EpepCoffLinenumber *ln, size_t index) {
+	size_t LinenumbersOffset = sh->PointerToLinenumbers;
+	epep_seek(epep, LinenumbersOffset + 6 * index);
+	epep_read_block(epep, 6, ln);
 	return 1;
 }
 
