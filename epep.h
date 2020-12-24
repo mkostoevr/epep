@@ -294,7 +294,7 @@ int epep_get_export_address_forwarder_s(Epep *epep, EpepExportAddress *export_ad
 int epep_export_address_is_forwarder(Epep *epep, EpepExportAddress *export_address);
 
 //
-// Relocations
+// DLL Base Relocations
 //
 
 typedef struct {
@@ -326,6 +326,18 @@ int epep_get_next_base_relocation_block(Epep *epep, EpepBaseRelocationBlock *it)
 
 /// Gives Base Relocation by its index in Base Relocation Block
 int epep_get_base_relocation_block_base_relocation_by_index(Epep *epep, EpepBaseRelocationBlock *brb, EpepBaseRelocation *br, size_t index);
+
+//
+// COFF Relocations
+//
+
+typedef struct {
+	uint32_t VirtualAddress;
+	uint32_t SymbolTableIndex;
+	uint16_t Type;
+} EpepCoffRelocation;
+
+int epep_get_section_relocation_by_index(Epep *epep, EpepSectionHeader *sh, EpepCoffRelocation *rel, size_t index);
 
 #ifdef EPEP_INST
 
@@ -776,7 +788,7 @@ int epep_export_address_is_forwarder(Epep *epep, EpepExportAddress *export_addre
 }
 
 //
-// Relocaions
+// DLL Base Relocaions
 //
 
 int epep_has_base_relocation_table(Epep *epep) {
@@ -844,6 +856,17 @@ int epep_get_base_relocation_block_base_relocation_by_index(Epep *epep, EpepBase
 		return 0;
 	}
 	br->u16 = epep_read_u16(epep);
+	return 1;
+}
+
+//
+// COFF Relocations
+//
+
+int epep_get_section_relocation_by_index(Epep *epep, EpepSectionHeader *sh, EpepCoffRelocation *rel, size_t index) {
+	size_t relocationsOffset = sh->PointerToRelocations;
+	epep_seek(epep, relocationsOffset + 10 * index);
+	epep_read_block(epep, 10, rel);
 	return 1;
 }
 
