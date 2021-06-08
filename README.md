@@ -5,6 +5,7 @@
 - Section Headers
 - COFF Symbols
 - COFF Relocations
+- COFF Linenumbers
 - Imports
 - Exports
 - Base relocations (DLL)
