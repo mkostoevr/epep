@@ -4,6 +4,7 @@
 - PE header (including Data Directories as a part Optional Header)
 - Section Headers
 - COFF Symbols
+- COFF Relocations
 - Imports
 - Exports
 - Base relocations (DLL)
