@@ -43,9 +43,14 @@ int main(int argc, char **argv) {
 		} else {
 			printf(" (%.*s)\n", 8, sh.Name);
 		}
-		for (size_t i = 0; i < sh.NumberOfRelocations; i++) {
+		size_t number_of_relocations;
+		int extended;
+		if (!epep_get_section_number_of_relocations_x(&epep, &sh, &number_of_relocations, &extended)) {
+			return ERROR(epep);
+		}
+		for (size_t i = 0; i < number_of_relocations; i++) {
 			EpepCoffRelocation rel = { 0 };
-			if (!epep_get_section_relocation_by_index(&epep, &sh, &rel, i)) {
+			if (!epep_get_section_relocation_by_index_x(&epep, &sh, &rel, i, extended)) {
 				return ERROR(epep);
 			}
 			printf("    COFF Relocation #%u\n", i);
