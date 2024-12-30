@@ -1,56 +1,29 @@
-// The program reads its own memory instead of a file and parses its section headers.
-// It redefines reader so that it reads directly from memory.
-
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
-#include <stdio.h>
-#include <windows.h>
 
-typedef struct {
-	char *base;
-	size_t index;
-} Reader;
-
-char reader_get(Reader *r) {
-	return r->base[r->index++];
-}
-
-void reader_seek(Reader *r, size_t s) {
-	r->index = s;
-}
-
-size_t reader_tell(Reader *r) {
-	return r->index;
-}
-
-void reader_get_block(Reader *r, size_t s, void *buf) {
-	for (size_t i = 0; i < s; i++) {
-		*r->base++ = reader_get(r);
-	}
-}
-
-#define EPEP_READER Reader
-#define EPEP_READER_GET(r) reader_get(r)
-#define EPEP_READER_SEEK(reader, offset) reader_seek(reader, offset)
-#define EPEP_READER_TELL(reader) reader_tell(reader)
-#define EPEP_READER_GET_BLOCK(reader, size, buf) reader_get_block(reader, size, buf)
 #define EPEP_INST
-#include "epep.h"
-
-
+#include "../epep.h"
 
 #define ERROR(epep) (printf("Error #%u from EPEP at " __FILE__ ": %u", epep.error_code, __LINE__), 1)
 
 int main(int argc, char **argv) {
-	Reader r = { .base = GetModuleHandle(NULL), .index = 0 };
+	if (argc < 2) {
+		printf("Usage:\n%s <filename>\n", argv[0]);
+		return 0;
+	}
 	Epep epep = { 0 };
-	if (!epep_init(&epep, r)) {
+	FILE *fp = fopen(argv[1], "rb");
+	if (!fp) {
+		printf("File not found: %s\n", argv[1]);
+		return 1;
+	}
+	if (!epep_init(&epep, fp)) {
 		printf("Not PE");
 		return 1;
 	}
-
-	// Get string table useful to show long names of sections (not mondatory actually)
+	
+	// Get string table useful to show long names of sections
 	size_t string_table_size = 1;
 	if (epep.kind == EPEP_OBJECT && !epep_get_string_table_size(&epep, &string_table_size)) {
 		return ERROR(epep);
@@ -67,8 +40,6 @@ int main(int argc, char **argv) {
 			return ERROR(epep);
 		}
 		printf("  Section #%u\n", i);
-		// Object filrs may contain sections with long names
-		// In that case names are stored in COFF String Table and index of name in the table is stored after '/' in Name
 		if (epep.kind == EPEP_OBJECT && sh.Name[0] == '/') {
 			printf("    Name:                 %s\n", &string_table[atoi(sh.Name + 1)]);
 		} else {

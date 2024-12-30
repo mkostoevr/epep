@@ -3,7 +3,7 @@
 #include <string.h>
 
 #define EPEP_INST
-#include "epep.h"
+#include "../epep.h"
 
 #define ERROR(epep) (printf("Error #%u from EPEP at " __FILE__ ": %u", epep.error_code, __LINE__), 1)
 
